@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="mb-4">Farmer Stories</h2>
+    
+    {% if request.user.is_authenticated %}
+    <div class="mb-4">
+        <a href="{% url 'create_story' %}" class="btn btn-primary">Share Your Story</a>
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        {% for story in stories %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                {% if story.image %}
+                <img src="{{ story.image.url }}" class="card-img-top" alt="{{ story.title }}">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ story.title }}</h5>
+                    <p class="card-text">{{ story.content|truncatewords:30 }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">By {{ story.author.get_full_name }}</small>
+                        <small class="text-muted">{{ story.created_at|date }}</small>
+                    </div>
+                    <a href="{% url 'story_details' story.pk %}" class="btn btn-link mt-2">Read More</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p>No stories have been shared yet. Be the first to share your farming journey!</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,240 @@
+{% extends 'layout.html' %}
+{% load static %}
+
+{% block title %}About Us - {{ block.super }}{% endblock %}
+
+{% block page_content %}
+<div class="container py-5">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <h1 class="display-4 fw-bold mb-3">About EcoFarm Connect</h1>
+            <p class="lead">Connecting farmers, buyers, and delivery partners in Kenya's agricultural ecosystem.</p>
+            <p>EcoFarm Connect is a digital platform that revolutionizes the agricultural marketplace by creating direct connections between farmers, buyers, and delivery partners. Our mission is to empower local farmers, ensure food security, and promote sustainable agricultural practices.</p>
+        </div>
+        <div class="col-md-6">
+            <img src="{% static 'images/about-hero.jpg' %}" alt="Farmers in the field" class="img-fluid rounded shadow">
+        </div>
+    </div>
+    
+    <!-- Mission & Vision -->
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-body">
+                    <h3 class="card-title text-success"><i class="fas fa-bullseye me-2"></i>Our Mission</h3>
+                    <p class="card-text">To create a sustainable agricultural ecosystem that empowers farmers, connects buyers, and ensures food security for communities across Kenya.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-body">
+                    <h3 class="card-title text-success"><i class="fas fa-eye me-2"></i>Our Vision</h3>
+                    <p class="card-text">To be the leading digital agricultural marketplace in East Africa, transforming how food is produced, distributed, and consumed.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Our Values -->
+    <div class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="fw-bold">Our Core Values</h2>
+            <p class="lead">The principles that guide everything we do</p>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-handshake fa-3x text-success mb-3"></i>
+                    <h4>Community</h4>
+                    <p>Building strong relationships between farmers, buyers, and delivery partners.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-leaf fa-3x text-success mb-3"></i>
+                    <h4>Sustainability</h4>
+                    <p>Promoting environmentally friendly farming practices and reducing food waste.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-balance-scale fa-3x text-success mb-3"></i>
+                    <h4>Fairness</h4>
+                    <p>Ensuring fair prices for farmers and quality products for buyers.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-lightbulb fa-3x text-success mb-3"></i>
+                    <h4>Innovation</h4>
+                    <p>Continuously improving our platform with new features and technologies.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- How It Works -->
+    <div class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="fw-bold">How EcoFarm Connect Works</h2>
+            <p class="lead">Our platform connects three key stakeholders in the agricultural ecosystem</p>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-store fa-2x"></i>
+                    </div>
+                    <h4>For Sellers</h4>
+                    <p>Farmers and agricultural producers can list their products, set prices, and connect directly with buyers. Our platform helps you reach a wider market and get fair prices for your produce.</p>
+                    {% if not user.is_authenticated %}
+                    <a href="{% url 'signup' %}" class="btn btn-outline-success">Join as a Seller</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-shopping-cart fa-2x"></i>
+                    </div>
+                    <h4>For Buyers</h4>
+                    <p>Individuals and businesses can browse products, place orders, and have fresh produce delivered to their doorstep. Our platform ensures you get quality products at competitive prices.</p>
+                    {% if not user.is_authenticated %}
+                    <a href="{% url 'signup' %}" class="btn btn-outline-success">Join as a Buyer</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-motorcycle fa-2x"></i>
+                    </div>
+                    <h4>For Boda Riders</h4>
+                    <p>Delivery partners can earn income by connecting sellers and buyers. Our platform provides a steady stream of delivery opportunities and flexible working hours.</p>
+                    {% if not user.is_authenticated %}
+                    <a href="{% url 'signup' %}" class="btn btn-outline-success">Join as a Boda Rider</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Team Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="fw-bold">Our Team</h2>
+            <p class="lead">The people behind EcoFarm Connect</p>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <img src="{% static 'images/team-1.jpg' %}" class="card-img-top" alt="Team Member">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Gerald </h5>
+                    <p class="card-text text-muted">Founder & CEO</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <img src="{% static 'images/team-2.jpg' %}" class="card-img-top" alt="Team Member">
+                <div class="card-body text-center">
+                    <h5 class="card-title">John</h5>
+                    <p class="card-text text-muted">Operations Manager</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <img src="{% static 'images/team-3.jpg' %}" class="card-img-top" alt="Team Member">
+                <div class="card-body text-center">
+                    <h5 class="card-title">David </h5>
+                    <p class="card-text text-muted">Technology Lead</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow h-100">
+                <img src="{% static 'images/team-4.jpg' %}" class="card-img-top" alt="Team Member">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Joseph</h5>
+                    <p class="card-text text-muted">Community Manager</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Recent Reviews</h4>
+                </div>
+                <div class="card-body">
+                    {% if recent_reviews %}
+                        {% for review in recent_reviews %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <h6>{{ review.buyer.get_full_name|default:review.buyer.username }}</h6>
+                                <div class="text-warning">
+                                    {% for i in "12345"|make_list %}
+                                        {% if forloop.counter <= review.rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <p class="mb-1">{{ review.comment|truncatechars:100 }}</p>
+                            <small class="text-muted">On {{ review.product.name }} - {{ review.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        {% if not forloop.last %}<hr>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p>No reviews yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Recent Negotiations</h4>
+                </div>
+                <div class="card-body">
+                    {% if recent_negotiations %}
+                        {% for negotiation in recent_negotiations %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <h6>{{ negotiation.buyer.get_full_name|default:negotiation.buyer.username }} → {{ negotiation.seller.get_full_name|default:negotiation.seller.username }}</h6>
+                                <span class="badge {% if negotiation.status == 'accepted' %}bg-success{% elif negotiation.status == 'rejected' %}bg-danger{% else %}bg-warning{% endif %}">
+                                    {{ negotiation.status|title }}
+                                </span>
+                            </div>
+                            <p class="mb-1">{{ negotiation.product.name }} - KES {{ negotiation.initial_price }} → KES {{ negotiation.proposed_price }}</p>
+                            <small class="text-muted">{{ negotiation.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        {% if not forloop.last %}<hr>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p>No negotiations yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Add Content - {{ module.title }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Add Content to {{ module.title }}</h2>
+                    <p class="text-muted mb-4">Course: {{ module.course.title }}</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus me-2"></i>Add Content
+                            </button>
+                            <a href="{% url 'course_details' pk=module.course.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Course
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const contentTypeField = document.getElementById('id_content_type');
+    const contentField = document.getElementById('id_content');
+    
+    function updateContentHelp() {
+        const selectedType = contentTypeField.value;
+        let helpText = '';
+        
+        switch(selectedType) {
+            case 'video':
+                helpText = 'Enter the video URL (YouTube, Vimeo, etc.)';
+                break;
+            case 'text':
+                helpText = 'Enter the text content. You can use markdown formatting.';
+                break;
+            case 'quiz':
+                helpText = 'Enter quiz questions in JSON format.';
+                break;
+            case 'assignment':
+                helpText = 'Enter assignment details and requirements.';
+                break;
+        }
+        
+        contentField.placeholder = helpText;
+    }
+    
+    contentTypeField.addEventListener('change', updateContentHelp);
+    updateContentHelp();
+});
+</script>
+{% endblock %}
+{% endblock %} 

@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                {% if story.image %}
+                <img src="{{ story.image.url }}" class="card-img-top" alt="{{ story.title }}">
+                {% endif %}
+                <div class="card-body">
+                    <h1 class="card-title">{{ story.title }}</h1>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="text-muted">
+                            <small>By {{ story.author.get_full_name }}</small>
+                            <small class="ml-2">{{ story.created_at|date:"F j, Y" }}</small>
+                        </div>
+                        {% if request.user == story.author %}
+                        <div>
+                            <a href="{% url 'edit_story' story.pk %}" class="btn btn-sm btn-outline-primary">Edit Story</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="story-content mb-4">
+                        {{ story.content|linebreaks }}
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="like-section">
+                            <form method="post" action="{% url 'like_story' story.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-link p-0">
+                                    <i class="fas fa-heart {% if request.user in story.likes.all %}text-danger{% else %}text-muted{% endif %}"></i>
+                                </button>
+                            </form>
+                            <small class="text-muted ml-1">{{ story.get_like_count }} likes</small>
+                        </div>
+                        <div class="share-section">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="shareStory('{{ request.build_absolute_uri }}')">
+                                <i class="fas fa-share-alt"></i> Share
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if request.user.is_authenticated %}
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">Leave a Comment</h5>
+                    <form method="post" action="{% url 'comment_story' story.pk %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <textarea name="content" class="form-control" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Post Comment</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="comments mt-4">
+                <h5>Comments</h5>
+                {% for comment in story.comments.all %}
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <p class="card-text">{{ comment.content }}</p>
+                        <small class="text-muted">
+                            {{ comment.author.get_full_name }} - {{ comment.created_at|timesince }} ago
+                        </small>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted">No comments yet. Be the first to comment!</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function shareStory(url) {
+    if (navigator.share) {
+        navigator.share({
+            title: '{{ story.title }}',
+            text: '{{ story.content|truncatewords:30 }}',
+            url: url
+        })
+        .catch(console.error);
+    } else {
+        // Fallback for browsers that don't support the Web Share API
+        const tempInput = document.createElement('input');
+        tempInput.value = url;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        alert('Link copied to clipboard!');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Community - EcoFarm Connect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Community Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="display-4">Community Hub</h1>
+            <p class="lead">Connect, share, and learn with fellow farmers</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'create_discussion' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Start Discussion
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Left Column - Discussions -->
+        <div class="col-md-8">
+            <!-- Featured Discussions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Featured Discussions</h5>
+                </div>
+                <div class="card-body">
+                    {% for discussion in featured_discussions %}
+                    <div class="discussion-item mb-3">
+                        <h6><a href="{% url 'discussion_details' discussion.pk %}">{{ discussion.title }}</a></h6>
+                        <p class="text-muted small">
+                            By {{ discussion.author.username }} | {{ discussion.created_at|timesince }} ago
+                        </p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No featured discussions yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Recent Discussions -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Discussions</h5>
+                    <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% for discussion in recent_discussions %}
+                    <div class="discussion-item mb-3">
+                        <h6><a href="{% url 'discussion_details' discussion.pk %}">{{ discussion.title }}</a></h6>
+                        <p class="text-muted small">
+                            By {{ discussion.author.username }} | {{ discussion.created_at|timesince }} ago
+                        </p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No discussions yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Sidebar -->
+        <div class="col-md-4">
+            <!-- Farmer Stories -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Farmer Stories</h5>
+                </div>
+                <div class="card-body">
+                    {% for story in recent_stories %}
+                    <div class="story-item mb-3">
+                        <h6><a href="{% url 'story_details' story.pk %}">{{ story.title }}</a></h6>
+                        <p class="text-muted small">
+                            By {{ story.author.username }} | {{ story.created_at|timesince }} ago
+                        </p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No stories yet.</p>
+                    {% endfor %}
+                    <a href="{% url 'farmer_stories' %}" class="btn btn-sm btn-outline-primary">View All Stories</a>
+                </div>
+            </div>
+
+            <!-- Upcoming Events -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Upcoming Events</h5>
+                </div>
+                <div class="card-body">
+                    {% for event in upcoming_events %}
+                    <div class="event-item mb-3">
+                        <h6><a href="{% url 'event_details' event.pk %}">{{ event.title }}</a></h6>
+                        <p class="text-muted small">
+                            {{ event.date|date:"F j, Y" }} | {{ event.location }}
+                        </p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No upcoming events.</p>
+                    {% endfor %}
+                    <a href="{% url 'events' %}" class="btn btn-sm btn-outline-primary">View All Events</a>
+                </div>
+            </div>
+
+            <!-- Community Rules -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Community Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="fas fa-check text-success"></i> Be respectful and kind</li>
+                        <li class="mb-2"><i class="fas fa-check text-success"></i> Share valuable insights</li>
+                        <li class="mb-2"><i class="fas fa-check text-success"></i> Help others learn</li>
+                        <li><i class="fas fa-check text-success"></i> Follow community rules</li>
+                    </ul>
+                    <a href="{% url 'community_rules' %}" class="btn btn-sm btn-link mt-2">Read Full Guidelines</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

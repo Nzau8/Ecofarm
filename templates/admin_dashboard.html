@@ -1,0 +1,608 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Admin Dashboard - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sidebar {
+        position: fixed;
+        top: 56px;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
+        padding: 48px 0 0;
+        box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+        background-color: #f8f9fa;
+    }
+
+    .sidebar-sticky {
+        position: relative;
+        top: 0;
+        height: calc(100vh - 48px);
+        padding-top: .5rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    @media (max-width: 767.98px) {
+        .sidebar {
+            position: static;
+            padding-top: 15px;
+        }
+    }
+
+    .nav-link {
+        color: #333;
+        font-weight: 500;
+        padding: .5rem 1rem;
+        border-radius: 0.25rem;
+        margin: 0.2rem 1rem;
+    }
+
+    .nav-link:hover {
+        background-color: #e9ecef;
+    }
+
+    .nav-link.active {
+        color: #198754;
+        background-color: #e8f5e9;
+    }
+
+    .nav-link i {
+        width: 24px;
+        text-align: center;
+    }
+
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: none;
+        border-radius: 0.5rem;
+    }
+
+    .stats-card {
+        transition: transform 0.2s;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .welcome-message {
+        background: linear-gradient(45deg, #198754, #20c997);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .progress-bar {
+        display: flex;
+        align-items: center;
+        padding: 0 0.5rem;
+    }
+
+    .progress {
+        height: 25px !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block sidebar">
+            <div class="sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#dashboard">
+                            <i class="fas fa-tachometer-alt"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#users">
+                            <i class="fas fa-users"></i>
+                            Manage Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#courses">
+                            <i class="fas fa-graduation-cap"></i>
+                            Manage Courses
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#products">
+                            <i class="fas fa-box"></i>
+                            Manage Products
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#orders">
+                            <i class="fas fa-shopping-cart"></i>
+                            Orders
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#reports">
+                            <i class="fas fa-flag"></i>
+                            Reports
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#settings">
+                            <i class="fas fa-cog"></i>
+                            Settings
+                        </a>
+                    </li>
+                    <li class="nav-item mt-3">
+                        <a class="nav-link text-danger" href="{% url 'logout' %}">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <!-- Welcome Message -->
+            <div class="welcome-message mb-4">
+                <h4 class="mb-1">Welcome back, {{ user.get_full_name|default:user.username }}!</h4>
+                <p class="mb-0">Here's what's happening in your platform today</p>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card stats-card bg-primary bg-gradient text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-3">Total Users</h6>
+                                    <h2 class="mb-0">{{ total_users }}</h2>
+                                </div>
+                                <div class="stats-icon">
+                                    <i class="fas fa-users fa-2x opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card bg-success bg-gradient text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-3">Total Products</h6>
+                                    <h2 class="mb-0">{{ total_products }}</h2>
+                                </div>
+                                <div class="stats-icon">
+                                    <i class="fas fa-box fa-2x opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card bg-info bg-gradient text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-3">Total Orders</h6>
+                                    <h2 class="mb-0">{{ total_orders }}</h2>
+                                </div>
+                                <div class="stats-icon">
+                                    <i class="fas fa-shopping-cart fa-2x opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stats-card bg-warning bg-gradient text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title mb-3">Reported Issues</h6>
+                                    <h2 class="mb-0">{{ reported_issues }}</h2>
+                                </div>
+                                <div class="stats-icon">
+                                    <i class="fas fa-flag fa-2x opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Monthly Sales ({{ current_year }})</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="salesChart" height="100"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Statistics Section -->
+            <div class="row mb-4" id="users">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">User Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <h6>Users by Role</h6>
+                                <div class="progress">
+                                    {% with total=user_roles.buyers|add:user_roles.sellers|add:user_roles.boda_riders %}
+                                    {% with buyer_percent=user_roles.buyers|div:total|multiply:100 %}
+                                    {% with seller_percent=user_roles.sellers|div:total|multiply:100 %}
+                                    {% with rider_percent=user_roles.boda_riders|div:total|multiply:100 %}
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: {{ buyer_percent }}%" aria-valuenow="{{ buyer_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                        Buyers ({{ user_roles.buyers }})
+                                    </div>
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ seller_percent }}%" aria-valuenow="{{ seller_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                        Sellers ({{ user_roles.sellers }})
+                                    </div>
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ rider_percent }}%" aria-valuenow="{{ rider_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                        Boda Riders ({{ user_roles.boda_riders }})
+                                    </div>
+                                    {% endwith %}
+                                    {% endwith %}
+                                    {% endwith %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                {% for user in recent_users %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ user.get_full_name|default:user.username }}</h6>
+                                            <small class="text-muted">
+                                                <i class="fas fa-user-tag me-1"></i>
+                                                {{ user.get_role_display }}
+                                            </small>
+                                        </div>
+                                        <small class="text-muted">{{ user.date_joined|timesince }} ago</small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Course Statistics -->
+                <div class="col-md-6" id="courses">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Learning Management</h5>
+                            <div>
+                                <a href="{% url 'create_course' %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-plus-circle me-1"></i>New Course
+                                </a>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Course Statistics -->
+                            <h6 class="mb-3">Course Statistics</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3 text-center">
+                                        <h3 class="text-primary mb-0">{{ total_courses }}</h3>
+                                        <small class="text-muted">Total Courses</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3 text-center">
+                                        <h3 class="text-success mb-0">{{ published_courses }}</h3>
+                                        <small class="text-muted">Published</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3 text-center">
+                                        <h3 class="text-info mb-0">{{ total_enrollments }}</h3>
+                                        <small class="text-muted">Enrollments</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Courses -->
+                            <h6 class="mb-3">Recent Courses</h6>
+                            <div class="list-group list-group-flush">
+                                {% for course in recent_courses %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ course.title }}</h6>
+                                            <small class="text-muted">
+                                                <i class="fas fa-user me-1"></i>{{ course.instructor.get_full_name }}
+                                                <i class="fas fa-layer-group ms-2 me-1"></i>{{ course.get_level_display }}
+                                            </small>
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'course_details' pk=course.pk %}" class="btn btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'edit_course' pk=course.pk %}" class="btn btn-outline-secondary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="text-center text-muted py-3">
+                                    <p>No courses available yet.</p>
+                                    <a href="{% url 'create_course' %}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus-circle me-1"></i>Create First Course
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Quick Actions -->
+                            <div class="mt-4">
+                                <h6 class="mb-3">Quick Actions</h6>
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'create_course' %}" class="btn btn-success">
+                                        <i class="fas fa-plus-circle me-2"></i>Create New Course
+                                    </a>
+                                    <a href="{% url 'create_resource' %}" class="btn btn-primary">
+                                        <i class="fas fa-upload me-2"></i>Add Learning Resource
+                                    </a>
+                                    <a href="/admin/connect/course/" class="btn btn-outline-secondary">
+                                        <i class="fas fa-cog me-2"></i>Manage All Courses
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products and Orders Section -->
+            <div class="row mb-4" id="products">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">Product Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>{{ product_stats.out_of_stock }}</strong> products out of stock
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>{{ product_stats.low_stock }}</strong> products with low stock
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6" id="orders">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">Recent Orders</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Order ID</th>
+                                            <th>Customer</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for order in recent_orders %}
+                                        <tr>
+                                            <td>#{{ order.id }}</td>
+                                            <td>{{ order.buyer.get_full_name }}</td>
+                                            <td>KES {{ order.total_amount }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ order.status|lower }}">
+                                                    {{ order.get_status_display }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Section -->
+            <div class="row mb-4" id="reports">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Recent Reports</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_reports %}
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Reported By</th>
+                                            <th>Type</th>
+                                            <th>Content</th>
+                                            <th>Reason</th>
+                                            <th>Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for report in recent_reports %}
+                                        <tr>
+                                            <td>{{ report.reporter.get_full_name }}</td>
+                                            <td>{{ report.get_report_type_display }}</td>
+                                            <td>{{ report.reported_model }} #{{ report.reported_id }}</td>
+                                            <td>{{ report.reason|truncatechars:50 }}</td>
+                                            <td>{{ report.created_at|date:"M d, Y" }}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-success js-resolve-report" data-report-id="{{ report.id }}">
+                                                    Resolve
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center mb-0">No pending reports</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div class="row mb-4" id="settings">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Platform Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>General Settings</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Platform Name</label>
+                                        <input type="text" class="form-control" value="EcoFarm" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Contact Email</label>
+                                        <input type="email" class="form-control" value="admin@ecofarm.com" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Maintenance Mode</h6>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="maintenanceMode">
+                                        <label class="form-check-label" for="maintenanceMode">Enable Maintenance Mode</label>
+                                    </div>
+                                    <small class="text-muted d-block mt-2">
+                                        When enabled, only administrators can access the platform.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function() {
+    'use strict';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Chart initialization
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const salesData = JSON.parse('{{ sales_data|escapejs }}');
+        
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Monthly Sales (KES)',
+                    data: salesData,
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // Navigation handling
+        const hash = window.location.hash || '#dashboard';
+        const activeLink = document.querySelector(`.nav-link[href="${hash}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+
+        document.querySelectorAll('.nav-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                document.querySelectorAll('.nav-link').forEach(function(l) {
+                    l.classList.remove('active');
+                });
+                this.classList.add('active');
+            });
+        });
+
+        // Report resolution handling
+        document.querySelectorAll('.js-resolve-report').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const reportId = this.dataset.reportId;
+                if (confirm('Are you sure you want to resolve this report?')) {
+                    fetch(`/api/reports/${reportId}/resolve/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token|escapejs }}'
+                        }
+                    })
+                    .then(function(response) {
+                        if (response.ok) {
+                            window.location.reload();
+                        } else {
+                            alert('Error resolving report');
+                        }
+                    });
+                }
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

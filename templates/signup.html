@@ -1,0 +1,125 @@
+{% extends 'layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Sign Up - {{ block.super }}{% endblock %}
+
+{% block page_content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">Create an Account</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    {{ form.username|as_crispy_field }}
+                    {{ form.email|as_crispy_field }}
+                    
+                    <div class="form-group mb-4">
+                        <label class="form-label fw-bold">Choose Your Role *</label>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="card h-100 {% if form.role.value == 'buyer' %}border-success{% endif %}">
+                                    <div class="card-body text-center">
+                                        <input type="radio" class="btn-check" name="role" id="role_buyer" value="buyer" required {% if form.role.value == 'buyer' %}checked{% endif %}>
+                                        <label class="btn btn-outline-success w-100 h-100" for="role_buyer">
+                                            <i class="fas fa-shopping-cart fa-2x mb-2"></i>
+                                            <h5 class="card-title">Buyer</h5>
+                                            <p class="card-text small">Purchase farm products and manage your orders</p>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 {% if form.role.value == 'seller' %}border-success{% endif %}">
+                                    <div class="card-body text-center">
+                                        <input type="radio" class="btn-check" name="role" id="role_seller" value="seller" required {% if form.role.value == 'seller' %}checked{% endif %}>
+                                        <label class="btn btn-outline-success w-100 h-100" for="role_seller">
+                                            <i class="fas fa-store fa-2x mb-2"></i>
+                                            <h5 class="card-title">Seller</h5>
+                                            <p class="card-text small">List and sell your farm products</p>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 {% if form.role.value == 'boda_rider' %}border-success{% endif %}">
+                                    <div class="card-body text-center">
+                                        <input type="radio" class="btn-check" name="role" id="role_boda_rider" value="boda_rider" required {% if form.role.value == 'boda_rider' %}checked{% endif %}>
+                                        <label class="btn btn-outline-success w-100 h-100" for="role_boda_rider">
+                                            <i class="fas fa-motorcycle fa-2x mb-2"></i>
+                                            <h5 class="card-title">Boda Rider</h5>
+                                            <p class="card-text small">Deliver products to customers</p>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% if form.role.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.role.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if user.is_authenticated and user.role == 'admin' %}
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="make_admin" name="make_admin">
+                            <label class="custom-control-label" for="make_admin">Make this user an administrator</label>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        {{ form.phone_number.label_tag }}
+                        {{ form.phone_number }}
+                        {% if form.phone_number.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.phone_number.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {{ form.location|as_crispy_field }}
+                    {{ form.profile_picture|as_crispy_field }}
+                    {{ form.password1|as_crispy_field }}
+                    {{ form.password2|as_crispy_field }}
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="terms" required>
+                        <label class="form-check-label" for="terms">
+                            I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Create Account</button>
+                    </div>
+                </form>
+                
+                <div class="mt-3 text-center">
+                    <p>Already have an account? <a href="{% url 'login' %}">Login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_css %}
+<style>
+    .btn-check:checked + .btn-outline-success {
+        background-color: #198754;
+        color: white;
+    }
+    .card {
+        transition: all 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+{% endblock %} 

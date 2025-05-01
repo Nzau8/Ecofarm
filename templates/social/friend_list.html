@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Friends - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-3">
+            <!-- User Info Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <img src="{{ user.profile_picture.url|default:'/static/images/default-profile.svg' }}" 
+                             class="rounded-circle me-3" width="64" height="64" alt="{{ user.get_full_name }}">
+                        <div>
+                            <h5 class="mb-0">{{ user.get_full_name }}</h5>
+                            <p class="text-muted mb-0">{{ user.get_role_display }}</p>
+                        </div>
+                    </div>
+                    <div class="border-top pt-3">
+                        <div class="row text-center">
+                            <div class="col">
+                                <h6 class="mb-0">{{ user.friends.count }}</h6>
+                                <small class="text-muted">Friends</small>
+                            </div>
+                            <div class="col">
+                                <h6 class="mb-0">{{ user.following.count }}</h6>
+                                <small class="text-muted">Following</small>
+                            </div>
+                            <div class="col">
+                                <h6 class="mb-0">{{ user.followers.count }}</h6>
+                                <small class="text-muted">Followers</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            <!-- Friends Navigation -->
+            <ul class="nav nav-pills mb-4">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#friends" data-bs-toggle="pill">Friends</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#following" data-bs-toggle="pill">Following</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#followers" data-bs-toggle="pill">Followers</a>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Friends Tab -->
+                <div class="tab-pane fade show active" id="friends">
+                    <div class="row g-3">
+                        {% for friend in friends %}
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ friend.profile_picture.url|default:'/static/images/default-profile.svg' }}" 
+                                             class="rounded-circle me-3" width="64" height="64" alt="{{ friend.get_full_name }}">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'user_profile' friend.username %}" class="text-decoration-none">
+                                                    {{ friend.get_full_name }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted mb-2">{{ friend.get_role_display }}</p>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'send_message' friend.id %}" class="btn btn-outline-success">
+                                                    <i class="fas fa-envelope me-1"></i>Message
+                                                </a>
+                                                <button class="btn btn-outline-danger" onclick="unfriend({{ friend.id }})">
+                                                    <i class="fas fa-user-times me-1"></i>Unfriend
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
+                                <h5>No Friends Yet</h5>
+                                <p class="text-muted">Start connecting with other farmers and buyers!</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Following Tab -->
+                <div class="tab-pane fade" id="following">
+                    <div class="row g-3">
+                        {% for followed in following %}
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ followed.profile_picture.url|default:'/static/images/default-profile.svg' }}" 
+                                             class="rounded-circle me-3" width="64" height="64" alt="{{ followed.get_full_name }}">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'user_profile' followed.username %}" class="text-decoration-none">
+                                                    {{ followed.get_full_name }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted mb-2">{{ followed.get_role_display }}</p>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" onclick="unfollowUser({{ followed.id }})">
+                                                    <i class="fas fa-user-check me-1"></i>Following
+                                                </button>
+                                                {% if followed not in user.friends.all %}
+                                                <button class="btn btn-outline-success" onclick="sendFriendRequest({{ followed.id }})">
+                                                    <i class="fas fa-user-plus me-1"></i>Add Friend
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                                <h5>Not Following Anyone</h5>
+                                <p class="text-muted">Follow other users to see their updates in your feed!</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Followers Tab -->
+                <div class="tab-pane fade" id="followers">
+                    <div class="row g-3">
+                        {% for follower in followers %}
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ follower.profile_picture.url|default:'/static/images/default-profile.svg' }}" 
+                                             class="rounded-circle me-3" width="64" height="64" alt="{{ follower.get_full_name }}">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'user_profile' follower.username %}" class="text-decoration-none">
+                                                    {{ follower.get_full_name }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted mb-2">{{ follower.get_role_display }}</p>
+                                            <div class="btn-group btn-group-sm">
+                                                {% if user not in follower.following.all %}
+                                                <button class="btn btn-outline-primary" onclick="followUser({{ follower.id }})">
+                                                    <i class="fas fa-user-plus me-1"></i>Follow Back
+                                                </button>
+                                                {% endif %}
+                                                {% if follower not in user.friends.all %}
+                                                <button class="btn btn-outline-success" onclick="sendFriendRequest({{ follower.id }})">
+                                                    <i class="fas fa-user-plus me-1"></i>Add Friend
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                <h5>No Followers Yet</h5>
+                                <p class="text-muted">Share interesting content to attract followers!</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function unfriend(userId) {
+    if (confirm('Are you sure you want to remove this friend?')) {
+        fetch(`/friends/remove/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            }
+        });
+    }
+}
+
+function followUser(userId) {
+    fetch(`/follow/${userId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        }
+    });
+}
+
+function unfollowUser(userId) {
+    if (confirm('Are you sure you want to unfollow this user?')) {
+        fetch(`/unfollow/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            }
+        });
+    }
+}
+
+function sendFriendRequest(userId) {
+    fetch(`/friends/add/${userId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}
+{% endblock %}

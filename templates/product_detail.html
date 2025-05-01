@@ -1,0 +1,618 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}{{ product.name }} - EcoFarm Connect{% endblock %}
+
+{% block extra_css %}
+<style>
+.rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+.rating input {
+    display: none;
+}
+.rating label {
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: #ddd;
+}
+.rating input:checked ~ label,
+.rating label:hover,
+.rating label:hover ~ label {
+    color: #ffc107;
+}
+.variant-card {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.variant-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.variant-card.selected {
+    border-color: #198754;
+    background-color: #f8f9fa;
+}
+.discount-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+}
+.review-image {
+    max-width: 100px;
+    height: 100px;
+    object-fit: cover;
+    cursor: pointer;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <!-- Product Images -->
+        <div class="col-md-6">
+            <div id="productCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    {% if product.seasonal_price %}
+                    <div class="discount-badge">
+                        <span class="badge bg-danger">
+                            Sale! {{ product.get_discount_percentage }}% OFF
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% for image in product.images.all %}
+                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                        <img src="{{ image.image.url }}" class="d-block w-100" alt="{{ product.name }}" 
+                             style="height: 400px; object-fit: cover;">
+                    </div>
+                    {% empty %}
+                    <div class="carousel-item active">
+                        <img src="https://via.placeholder.com/600x400" class="d-block w-100" alt="{{ product.name }}" 
+                             style="height: 400px; object-fit: cover;">
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if product.images.count > 1 %}
+                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon"></span>
+                </button>
+                {% endif %}
+            </div>
+            
+            <!-- Thumbnail Navigation -->
+            {% if product.images.count > 1 %}
+            <div class="row mt-3">
+                {% for image in product.images.all %}
+                <div class="col-3">
+                    <img src="{{ image.image.url }}" class="img-thumbnail" alt="{{ product.name }}"
+                         onclick="switchImage({{ forloop.counter0 }})"
+                         style="height: 80px; object-fit: cover; cursor: pointer;">
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Product Information -->
+        <div class="col-md-6">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'marketplace' %}">Marketplace</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'marketplace' %}?category={{ product.category }}">{{ product.get_category_display }}</a></li>
+                    <li class="breadcrumb-item active">{{ product.name }}</li>
+                </ol>
+            </nav>
+
+            <h1 class="mb-3">{{ product.name }}</h1>
+            
+            <!-- Tags -->
+            <div class="mb-3">
+                {% for tag in product.tags.all %}
+                <a href="{% url 'marketplace' %}?tags={{ tag.name }}" class="badge bg-secondary text-decoration-none">
+                    {{ tag.name }}
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- Price Section -->
+            <div class="mb-3">
+                {% if product.seasonal_price %}
+                <div class="mb-2">
+                    <span class="text-decoration-line-through text-muted h5">KES {{ product.price }}</span>
+                    <span class="h3 text-danger ms-2">KES {{ product.get_current_price }}</span>
+                    <span class="badge bg-danger">{{ product.get_discount_percentage }}% OFF</span>
+                    {% if product.seasonal_end %}
+                    <small class="d-block text-muted">Sale ends on {{ product.seasonal_end|date }}</small>
+                    {% endif %}
+                </div>
+                {% else %}
+                <h3 class="mb-2">KES {{ product.price }}</h3>
+                {% endif %}
+                <span class="text-muted">per {{ product.unit }}</span>
+            </div>
+
+            <!-- Rating Summary -->
+            {% if product.average_rating > 0 %}
+            <div class="mb-3">
+                <div class="d-flex align-items-center">
+                    <div class="rating-stars h4 mb-0">
+                        {% for i in "12345"|make_list %}
+                        <i class="bi bi-star{% if forloop.counter <= product.average_rating %}-fill{% endif %}"></i>
+                        {% endfor %}
+                    </div>
+                    <span class="ms-2">{{ product.average_rating|floatformat:1 }} out of 5</span>
+                </div>
+                <small class="text-muted">Based on {{ product.total_reviews }} reviews</small>
+            </div>
+            {% endif %}
+
+            <!-- Variants -->
+            {% if product.variants.exists %}
+            <div class="mb-4">
+                <h5>Available Variants</h5>
+                <div class="row g-2">
+                    {% for variant in product.variants.all %}
+                    <div class="col-md-6">
+                        <div class="card variant-card" onclick="selectVariant({{ variant.id }})">
+                            <div class="card-body">
+                                <h6 class="mb-1">{{ variant }}</h6>
+                                <p class="mb-1">KES {{ variant.price }}</p>
+                                <small class="text-muted">Stock: {{ variant.stock }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Bulk Discounts -->
+            {% if product.bulk_discounts.exists %}
+            <div class="mb-4">
+                <h5>Bulk Discounts</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Quantity</th>
+                                <th>Discount</th>
+                                <th>Price per {{ product.unit }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for discount in product.bulk_discounts.all %}
+                            <tr>
+                                <td>{{ discount.min_quantity }}+ {{ product.unit }}</td>
+                                <td>{{ discount.discount_percentage }}%</td>
+                                <td>KES {{ discount.get_discounted_price|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Product Details -->
+            <div class="mb-4">
+                <h5>Product Details</h5>
+                <p>{{ product.description }}</p>
+                {% if product.expiry_date %}
+                <p class="text-muted">
+                    <i class="bi bi-calendar-event"></i> Best before: {{ product.expiry_date|date }}
+                </p>
+                {% endif %}
+            </div>
+
+            <!-- Stock Information -->
+            <div class="mb-4">
+                <h5>Availability</h5>
+                {% if product.quantity > 0 %}
+                <p class="{% if product.is_low_stock %}text-warning{% endif %}">
+                    {{ product.quantity }} {{ product.unit }} available
+                    {% if product.is_low_stock %}(Low Stock){% endif %}
+                </p>
+                {% if product.min_order_quantity > 1 %}
+                <p class="text-muted">Minimum order: {{ product.min_order_quantity }} {{ product.unit }}</p>
+                {% endif %}
+                {% if product.max_order_quantity %}
+                <p class="text-muted">Maximum order: {{ product.max_order_quantity }} {{ product.unit }}</p>
+                {% endif %}
+                {% else %}
+                <p class="text-danger">Out of Stock</p>
+                {% endif %}
+            </div>
+
+            <!-- Action Buttons -->
+            {% if user.is_authenticated %}
+            <div class="d-grid gap-2">
+                {% if product.quantity > 0 %}
+                <form method="post" action="{% url 'add_to_cart' %}" class="d-grid">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <input type="hidden" name="variant_id" id="selectedVariantId">
+                    <div class="input-group mb-3">
+                        <button type="button" class="btn btn-outline-secondary" onclick="updateQuantity(-1)">-</button>
+                        <input type="number" class="form-control text-center" id="quantity" name="quantity" 
+                               value="{{ product.min_order_quantity }}" 
+                               min="{{ product.min_order_quantity }}" 
+                               max="{{ product.max_order_quantity|default:product.quantity }}">
+                        <button type="button" class="btn btn-outline-secondary" onclick="updateQuantity(1)">+</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-cart-plus"></i> Add to Cart
+                    </button>
+                </form>
+                {% endif %}
+                
+                <form method="post" action="{% url 'wishlist' %}" class="d-grid">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-heart"></i> Add to Wishlist
+                    </button>
+                </form>
+
+                {% if user.is_buyer %}
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#negotiationModal">
+                    <i class="bi bi-chat-dots"></i> Negotiate Price
+                </button>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                Please <a href="{% url 'login' %}">login</a> to purchase or negotiate.
+            </div>
+            {% endif %}
+
+            <!-- Seller Information -->
+            <div class="seller-info mb-4">
+                <h5>Seller Information</h5>
+                <div class="d-flex align-items-center">
+                    <img src="{% if product.seller.profile_picture %}{{ product.seller.profile_picture.url }}{% else %}{% static 'images/default-profile.svg' %}{% endif %}" 
+                         alt="{{ product.seller.get_full_name }}" class="rounded-circle me-2" style="width: 50px; height: 50px; object-fit: cover;">
+                    <div>
+                        <h6 class="mb-0">{{ product.seller.get_full_name|default:product.seller.username }}</h6>
+                        <small class="text-muted">Member since {{ product.seller.date_joined|date }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reviews Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="mb-4">Reviews</h3>
+            
+            {% if user.is_authenticated and not user_review %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Write a Review</h5>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Rating</label>
+                            <div class="rating">
+                                {% for i in "54321"|make_list %}
+                                <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" required>
+                                <label for="star{{ i }}"><i class="bi bi-star-fill"></i></label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Your Review</label>
+                            <textarea class="form-control" name="comment" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Add Photos (optional)</label>
+                            <input type="file" class="form-control" name="review_images" multiple accept="image/*">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Review</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Reviews List -->
+            {% for review in reviews %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="d-flex align-items-center">
+                            <img src="{% if review.buyer.profile_picture %}{{ review.buyer.profile_picture.url }}{% else %}{% static 'images/default-profile.svg' %}{% endif %}" 
+                                 alt="{{ review.buyer.get_full_name }}" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                            <div>
+                                <h6 class="mb-0">{{ review.buyer.get_full_name|default:review.buyer.username }}</h6>
+                                <small class="text-muted">{{ review.created_at|date }}</small>
+                            </div>
+                        </div>
+                        <div class="rating-stars">
+                            {% for i in "12345"|make_list %}
+                            <i class="bi bi-star{% if forloop.counter <= review.rating %}-fill{% endif %}"></i>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <p class="card-text">{{ review.comment }}</p>
+                    
+                    {% if review.images.exists %}
+                    <div class="review-images mb-2">
+                        {% for image in review.images.all %}
+                        <img src="{{ image.image.url }}" class="review-image me-2 rounded" 
+                             alt="Review image" onclick="showImage('{{ image.image.url }}')">
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if review.buyer == user %}
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteReview({{ review.id }})">
+                            <i class="bi bi-trash"></i> Delete Review
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="alert alert-info">
+                No reviews yet. Be the first to review this product!
+            </div>
+            {% endfor %}
+
+            <!-- Review Pagination -->
+            {% if reviews.has_other_pages %}
+            <nav aria-label="Review pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if reviews.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ reviews.previous_page_number }}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in reviews.paginator.page_range %}
+                    <li class="page-item {% if reviews.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+
+                    {% if reviews.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ reviews.next_page_number }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Negotiation Modal -->
+{% if user.is_authenticated and user.is_buyer %}
+<div class="modal fade" id="negotiationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Negotiate Price</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'create_negotiation' %}" id="negotiationForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="product" value="{{ product.id }}">
+                    <div class="mb-3">
+                        <label class="form-label">Current Price</label>
+                        <input type="text" class="form-control" value="KES {{ product.get_current_price }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="proposed_price" class="form-label">Your Proposed Price (KES)</label>
+                        <input type="number" class="form-control" id="proposed_price" name="proposed_price" 
+                               required min="1" max="{{ product.get_current_price }}" step="0.01">
+                        <div class="form-text">Enter a price between 1 and {{ product.get_current_price }} KES</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity ({{ product.unit }})</label>
+                        <input type="number" class="form-control" id="negotiate_quantity" name="quantity" 
+                               required min="{{ product.min_order_quantity }}" 
+                               max="{{ product.max_order_quantity|default:product.quantity }}" 
+                               value="{{ product.min_order_quantity }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Message to Seller (Optional)</label>
+                        <textarea class="form-control" id="message" name="message" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send Negotiation</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-body p-0">
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-2" data-bs-dismiss="modal"></button>
+                <img src="" id="previewImage" class="img-fluid w-100">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Message Seller Modal -->
+<div class="modal fade" id="messageSellerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Message to {{ product.seller.get_full_name|default:product.seller.username }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form class="message-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="recipient_id" value="{{ product.seller.id }}">
+                    <div class="mb-3">
+                        <label class="form-label">Your Message</label>
+                        <textarea class="form-control" name="message" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send Message</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% block extra_js %}
+<script>
+let selectedVariantId = null;
+
+function selectVariant(variantId) {
+    selectedVariantId = variantId;
+    document.getElementById('selectedVariantId').value = variantId;
+    document.querySelectorAll('.variant-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    event.currentTarget.classList.add('selected');
+}
+
+function updateQuantity(change) {
+    const input = document.getElementById('quantity');
+    let value = parseInt(input.value) + change;
+    const min = parseInt(input.min);
+    const max = parseInt(input.max);
+    
+    value = Math.max(min, Math.min(max, value));
+    input.value = value;
+}
+
+function switchImage(index) {
+    const carousel = new bootstrap.Carousel(document.getElementById('productCarousel'));
+    carousel.to(index);
+}
+
+function showImage(url) {
+    document.getElementById('previewImage').src = url;
+    new bootstrap.Modal(document.getElementById('imagePreviewModal')).show();
+}
+
+function deleteReview(reviewId) {
+    if (confirm('Are you sure you want to delete your review?')) {
+        fetch(`/product/review/${reviewId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            }
+        });
+    }
+}
+
+// Handle negotiation form submission
+document.getElementById('negotiationForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Negotiation sent successfully!');
+            location.reload();
+        } else {
+            alert('Error sending negotiation. Please try again.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error sending negotiation. Please try again.');
+    });
+});
+
+// Track product view
+fetch(`/product/{{ product.id }}/view/`, {
+    method: 'POST',
+    headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    }
+});
+
+// Handle message form submission
+document.querySelector('.message-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const submitBtn = this.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+    
+    fetch('{% url "message_seller" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('messageSellerModal'));
+            modal.hide();
+            
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                Message sent successfully!
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.messages').appendChild(alert);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            Error sending message. Please try again.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        this.appendChild(alert);
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Send Message';
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

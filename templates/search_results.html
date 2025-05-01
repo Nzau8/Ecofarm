@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Search Results - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="mb-4">Search Results for "{{ query }}"</h1>
+
+    {% if not products and not resources and not discussions %}
+        <div class="alert alert-info">
+            No results found for your search.
+        </div>
+    {% endif %}
+
+    <!-- Products Section -->
+    {% if products %}
+    <div class="mb-5">
+        <h2 class="h4 mb-4">Products</h2>
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for product in products %}
+            <div class="col">
+                <div class="card h-100">
+                    {% if product.images.first %}
+                    <img src="{{ product.images.first.image.url }}" class="card-img-top" alt="{{ product.name }}" style="height: 200px; object-fit: cover;">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.name }}</h5>
+                        <p class="card-text">{{ product.description|truncatechars:100 }}</p>
+                        <p class="card-text">
+                            <strong>Price:</strong> KES {{ product.price }}
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resources Section -->
+    {% if resources %}
+    <div class="mb-5">
+        <h2 class="h4 mb-4">Learning Resources</h2>
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for resource in resources %}
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ resource.title }}</h5>
+                        <p class="card-text">{{ resource.description|truncatechars:100 }}</p>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>{{ resource.created_at|date:"M d, Y" }}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{% url 'resource_details' resource.pk %}" class="btn btn-primary">View Resource</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Discussions Section -->
+    {% if discussions %}
+    <div class="mb-5">
+        <h2 class="h4 mb-4">Community Discussions</h2>
+        <div class="list-group">
+            {% for discussion in discussions %}
+            <a href="{% url 'discussion_details' discussion.pk %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ discussion.title }}</h5>
+                    <small class="text-muted">{{ discussion.created_at|date:"M d, Y" }}</small>
+                </div>
+                <p class="mb-1">{{ discussion.content|truncatechars:200 }}</p>
+                <small class="text-muted">
+                    <i class="fas fa-user me-1"></i>{{ discussion.author.get_full_name }}
+                    <i class="fas fa-comments ms-3 me-1"></i>{{ discussion.comments.count }} comments
+                </small>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

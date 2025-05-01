@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Sidebar (if needed) -->
+        {% if sidebar %}
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-body">
+                    {% block sidebar %}{% endblock %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Main Content -->
+        <div class="{% if sidebar %}col-md-9{% else %}col-12{% endif %}">
+            {% block page_content %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

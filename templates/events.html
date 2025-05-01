@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <h1>Community Events</h1>
+    
+    <!-- Upcoming Events Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Upcoming Events</h3>
+        </div>
+        <div class="card-body">
+            {% if upcoming_events %}
+                {% for event in upcoming_events %}
+                    <div class="event-card mb-3 p-3 border rounded">
+                        <h4><a href="{% url 'event_details' event.pk %}">{{ event.title }}</a></h4>
+                        <p class="text-muted">
+                            <i class="fas fa-calendar"></i> {{ event.start_date|date:"F j, Y" }}
+                            {% if event.end_date %} - {{ event.end_date|date:"F j, Y" }}{% endif %}
+                            <br>
+                            <i class="fas fa-map-marker-alt"></i> {{ event.location }}
+                        </p>
+                        <p>{{ event.description|truncatewords:50 }}</p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No upcoming events at this time.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Past Events Section -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Past Events</h3>
+        </div>
+        <div class="card-body">
+            {% if past_events %}
+                {% for event in past_events %}
+                    <div class="event-card mb-3 p-3 border rounded">
+                        <h4><a href="{% url 'event_details' event.pk %}">{{ event.title }}</a></h4>
+                        <p class="text-muted">
+                            <i class="fas fa-calendar"></i> {{ event.start_date|date:"F j, Y" }}
+                            {% if event.end_date %} - {{ event.end_date|date:"F j, Y" }}{% endif %}
+                            <br>
+                            <i class="fas fa-map-marker-alt"></i> {{ event.location }}
+                        </p>
+                        <p>{{ event.description|truncatewords:30 }}</p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No past events.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

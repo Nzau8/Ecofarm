@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ event.title }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="event-details">
+                <p class="text-muted">
+                    <i class="fas fa-calendar"></i> {{ event.start_date|date:"F j, Y - g:i A" }}
+                    {% if event.end_date %} - {{ event.end_date|date:"F j, Y - g:i A" }}{% endif %}
+                </p>
+                <p><i class="fas fa-map-marker-alt"></i> {{ event.location }}</p>
+                <div class="description mb-4">
+                    {{ event.description|linebreaks }}
+                </div>
+
+                {% if event.can_register %}
+                    {% if not is_registered %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary">Register for Event</button>
+                        </form>
+                    {% else %}
+                        <p class="text-success"><i class="fas fa-check"></i> You are registered for this event</p>
+                    {% endif %}
+                {% else %}
+                    {% if event.start_date < now %}
+                        <p class="text-muted">This event has already started or ended.</p>
+                    {% else %}
+                        <p class="text-muted">Registration is closed for this event.</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <div class="participants mt-4">
+                <h4>Participants ({{ participants.count }})</h4>
+                <div class="row">
+                    {% for participant in participants %}
+                        <div class="col-md-3 mb-3">
+                            <div class="participant-card">
+                                <img src="{{ participant.profile_picture.url|default:'static/images/default-profile.svg' }}" 
+                                     class="rounded-circle" width="50" height="50" alt="{{ participant.username }}">
+                                <span>{{ participant.get_full_name|default:participant.username }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Order Tracking - EcoFarm Connect{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Order Status Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="card-title mb-0">Order #{{ order.order_number }}</h4>
+                        <span class="badge bg-{{ order.status|status_color }} fs-6">{{ order.get_status_display }}</span>
+                    </div>
+                    
+                    <!-- Order Status Timeline -->
+                    <div class="order-timeline mb-4">
+                        <div class="timeline-item {% if order.status != 'pending' %}completed{% endif %}">
+                            <div class="timeline-icon">
+                                <i class="bi bi-cart-check"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6>Order Placed</h6>
+                                <p class="small text-muted">{{ order.created_at|date:"F j, Y, g:i a" }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-item {% if order.status == 'confirmed' or order.status == 'processing' or order.status == 'shipped' or order.status == 'delivered' %}completed{% endif %}">
+                            <div class="timeline-icon">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6>Order Confirmed</h6>
+                                <p class="small text-muted">{% if order.status != 'pending' %}{{ order.updated_at|date:"F j, Y, g:i a" }}{% else %}Pending{% endif %}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-item {% if order.status == 'processing' or order.status == 'shipped' or order.status == 'delivered' %}completed{% endif %}">
+                            <div class="timeline-icon">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6>Processing</h6>
+                                <p class="small text-muted">{% if order.status == 'processing' or order.status == 'shipped' or order.status == 'delivered' %}{{ order.updated_at|date:"F j, Y, g:i a" }}{% else %}Pending{% endif %}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-item {% if order.status == 'shipped' or order.status == 'delivered' %}completed{% endif %}">
+                            <div class="timeline-icon">
+                                <i class="bi bi-truck"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6>Shipped</h6>
+                                <p class="small text-muted">{% if order.status == 'shipped' or order.status == 'delivered' %}{{ order.updated_at|date:"F j, Y, g:i a" }}{% else %}Pending{% endif %}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-item {% if order.status == 'delivered' %}completed{% endif %}">
+                            <div class="timeline-icon">
+                                <i class="bi bi-house-check"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6>Delivered</h6>
+                                <p class="small text-muted">{% if order.status == 'delivered' %}{{ order.updated_at|date:"F j, Y, g:i a" }}{% else %}Pending{% endif %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Delivery Information -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Delivery Information</h5>
+                            <p class="mb-1"><strong>Address:</strong></p>
+                            <p class="mb-3">{{ order.delivery_address }}</p>
+                            <p class="mb-1"><strong>Delivery Method:</strong></p>
+                            <p class="mb-3">{{ order.get_delivery_type_display }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Payment Information</h5>
+                            <p class="mb-1"><strong>Payment Method:</strong></p>
+                            <p class="mb-3">M-Pesa</p>
+                            <p class="mb-1"><strong>Payment Status:</strong></p>
+                            <p class="mb-3">
+                                {% if order.payment_status %}
+                                <span class="badge bg-success">Paid</span>
+                                {% else %}
+                                <span class="badge bg-warning">Pending</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Delivery Tracking Map -->
+            {% if order.status == 'shipped' and order.delivery_type == 'boda' %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Live Tracking</h5>
+                    <div id="deliveryMap" style="height: 300px; width: 100%;" class="mb-3"></div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">Boda Rider</h6>
+                            <p class="mb-0">{{ order.boda_rider.username }}</p>
+                            <p class="small text-muted mb-0">Phone: {{ order.boda_rider.phone_number }}</p>
+                        </div>
+                        <div class="text-end">
+                            <h6 class="mb-1">Estimated Arrival</h6>
+                            <p class="mb-0" id="estimatedArrival">Calculating...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Order Items -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Order Items</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items.all %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if item.product.image %}
+                                            <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="me-2" style="width: 50px; height: 50px; object-fit: cover;">
+                                            {% endif %}
+                                            {{ item.product.name }}
+                                        </div>
+                                    </td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>KES {{ item.product.price }}</td>
+                                    <td>KES {{ item.total_price }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                                    <td>KES {{ order.subtotal }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Delivery Fee:</strong></td>
+                                    <td>KES {{ order.delivery_fee }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td><strong>KES {{ order.total_amount }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-4">
+                <a href="{% url 'marketplace' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i> Continue Shopping
+                </a>
+                {% if order.status == 'delivered' %}
+                <a href="{% url 'leave_review' order.order_number %}" class="btn btn-primary">
+                    <i class="bi bi-star"></i> Leave Review
+                </a>
+                {% endif %}
+                <a href="{% url 'contact' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-headset"></i> Contact Support
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+    
+    .order-timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 30px;
+        height: 100%;
+        width: 2px;
+        background-color: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 60px;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .timeline-icon {
+        position: absolute;
+        left: 20px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+        z-index: 1;
+    }
+    
+    .timeline-item.completed .timeline-icon {
+        background-color: var(--primary-green);
+        color: white;
+    }
+    
+    .timeline-content {
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .timeline-item.completed .timeline-content {
+        background-color: #e8f5e9;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{% if order.status == 'shipped' and order.delivery_type == 'boda' %}
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize map with seller's location or default to Nairobi if not available
+    const sellerLat = {{ order.seller.latitude|default:"-1.2921" }};
+    const sellerLng = {{ order.seller.longitude|default:"36.8219" }};
+    const map = new google.maps.Map(document.getElementById('deliveryMap'), {
+        zoom: 12,
+        center: { lat: sellerLat, lng: sellerLng },
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+    });
+    
+    // Add markers for pickup and delivery locations
+    const pickupMarker = new google.maps.Marker({
+        position: { lat: sellerLat, lng: sellerLng },
+        map: map,
+        icon: {
+            url: '{% static "images/pickup-marker.png" %}',
+            scaledSize: new google.maps.Size(32, 32)
+        },
+        title: 'Pickup Location'
+    });
+    
+    // Add delivery location marker if coordinates are available
+    {% if order.buyer.latitude and order.buyer.longitude %}
+    const deliveryMarker = new google.maps.Marker({
+        position: { lat: {{ order.buyer.latitude }}, lng: {{ order.buyer.longitude }} },
+        map: map,
+        icon: {
+            url: '{% static "images/delivery-marker.png" %}',
+            scaledSize: new google.maps.Size(32, 32)
+        },
+        title: 'Delivery Location'
+    });
+    {% endif %}
+    
+    // Add marker for boda rider if available
+    {% if order.boda_rider.latitude and order.boda_rider.longitude %}
+    const bodaMarker = new google.maps.Marker({
+        position: { lat: {{ order.boda_rider.latitude }}, lng: {{ order.boda_rider.longitude }} },
+        map: map,
+        icon: {
+            url: '{% static "images/boda-marker.png" %}',
+            scaledSize: new google.maps.Size(32, 32)
+        },
+        title: 'Boda Rider'
+    });
+    {% endif %}
+    
+    // Draw route if both pickup and delivery locations are available
+    {% if order.buyer.latitude and order.buyer.longitude %}
+    const directionsService = new google.maps.DirectionsService();
+    const directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true
+    });
+    
+    const request = {
+        origin: { lat: sellerLat, lng: sellerLng },
+        destination: { lat: {{ order.buyer.latitude }}, lng: {{ order.buyer.longitude }} },
+        travelMode: google.maps.TravelMode.DRIVING
+    };
+    
+    directionsService.route(request, function(result, status) {
+        if (status == 'OK') {
+            directionsRenderer.setDirections(result);
+            
+            // Calculate estimated arrival time
+            const duration = result.routes[0].legs[0].duration.text;
+            document.getElementById('estimatedArrival').textContent = duration;
+        }
+    });
+    {% endif %}
+    
+    // Update boda rider position periodically
+    const updateBodaPosition = () => {
+        fetch(`/api/deliveries/{{ order.order_number }}/location/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.latitude && data.longitude) {
+                    const newPosition = new google.maps.LatLng(data.latitude, data.longitude);
+                    bodaMarker.setPosition(newPosition);
+                    
+                    // Update estimated arrival time
+                    if (data.estimated_arrival) {
+                        document.getElementById('estimatedArrival').textContent = data.estimated_arrival;
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    };
+    
+    // Update position every 30 seconds
+    const positionInterval = setInterval(updateBodaPosition, 30000);
+    
+    // Initial update
+    updateBodaPosition();
+    
+    // Clean up interval when page is closed
+    window.addEventListener('beforeunload', function() {
+        clearInterval(positionInterval);
+    });
+});
+</script>
+{% endif %}
+{% endblock %} 

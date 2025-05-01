@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Learning Resources - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Header Section -->
+    <div class="row mb-5">
+        <div class="col-md-8">
+            <h1 class="display-4 fw-bold mb-3">Learning Resources</h1>
+            <p class="lead">Access our collection of educational materials, guides, and tools to enhance your agricultural knowledge.</p>
+        </div>
+        {% if user.is_staff %}
+        <div class="col-md-4 text-end">
+            <a href="{% url 'create_resource' %}" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Add Resource
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Resource Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-success active" data-filter="all">All</button>
+                <button type="button" class="btn btn-outline-success" data-filter="pdf">PDFs</button>
+                <button type="button" class="btn btn-outline-success" data-filter="video">Videos</button>
+                <button type="button" class="btn btn-outline-success" data-filter="link">Links</button>
+                <button type="button" class="btn btn-outline-success" data-filter="tool">Tools</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resources Grid -->
+    <div class="row" id="resources-grid">
+        {% if resources %}
+            {% for resource in resources %}
+            <div class="col-md-4 mb-4 resource-item" data-type="{{ resource.resource_type }}">
+                <div class="card shadow h-100">
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            {% if resource.resource_type == 'pdf' %}
+                            <i class="fas fa-file-pdf fa-3x text-danger"></i>
+                            {% elif resource.resource_type == 'video' %}
+                            <i class="fas fa-video fa-3x text-primary"></i>
+                            {% elif resource.resource_type == 'link' %}
+                            <i class="fas fa-link fa-3x text-info"></i>
+                            {% else %}
+                            <i class="fas fa-tools fa-3x text-success"></i>
+                            {% endif %}
+                        </div>
+                        <h5 class="card-title text-center">{{ resource.title }}</h5>
+                        <p class="card-text text-center">{{ resource.description|truncatechars:150 }}</p>
+                        <div class="d-grid">
+                            <a href="{% url 'resource_details' pk=resource.pk %}" class="btn btn-outline-success">
+                                View Resource
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-footer text-muted text-center">
+                        <small>Added {{ resource.created_at|date:"M d, Y" }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <p class="mb-0">No resources available yet. Check back soon!</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    const resourceItems = document.querySelectorAll('.resource-item');
+
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const filterValue = this.getAttribute('data-filter');
+            
+            // Update active button state
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Filter resources
+            resourceItems.forEach(item => {
+                if (filterValue === 'all' || item.getAttribute('data-type') === filterValue) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

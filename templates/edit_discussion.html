@@ -1,0 +1,69 @@
+{% extends 'layout.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Edit Discussion - Community - {{ block.super }}{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Edit Discussion</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" name="title" required 
+                                   value="{{ discussion.title }}"
+                                   placeholder="Enter a descriptive title for your discussion">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="">Select a category</option>
+                                <option value="farming_tips" {% if discussion.category == 'farming_tips' %}selected{% endif %}>
+                                    Farming Tips
+                                </option>
+                                <option value="market_prices" {% if discussion.category == 'market_prices' %}selected{% endif %}>
+                                    Market Prices
+                                </option>
+                                <option value="delivery" {% if discussion.category == 'delivery' %}selected{% endif %}>
+                                    Delivery
+                                </option>
+                                <option value="general" {% if discussion.category == 'general' %}selected{% endif %}>
+                                    General
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="content" class="form-label">Content</label>
+                            <textarea class="form-control" id="content" name="content" rows="6" required
+                                    placeholder="Share your thoughts, questions, or experiences...">{{ discussion.content }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="tags" class="form-label">Tags (optional)</label>
+                            <input type="text" class="form-control" id="tags" name="tags"
+                                   value="{{ discussion.tags }}"
+                                   placeholder="Add tags separated by commas (e.g., organic, vegetables, pricing)">
+                            <div class="form-text">Tags help others find your discussion more easily</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">Save Changes</button>
+                            <a href="{% url 'discussion_details' discussion.pk %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

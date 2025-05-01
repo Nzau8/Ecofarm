@@ -1,0 +1,199 @@
+{% extends 'layout.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Learning Hub - {{ block.super }}{% endblock %}
+
+{% block page_content %}
+<div class="container py-5">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-md-8">
+            <h1 class="display-4 fw-bold mb-3">Learning Hub</h1>
+            <p class="lead">Expand your knowledge and skills in agriculture, business, and technology.</p>
+            <p>The EcoFarm Connect Learning Hub provides educational resources, courses, and tools to help farmers, buyers, and delivery partners succeed in the agricultural marketplace.</p>
+        </div>
+        <div class="col-md-4">
+            <img src="{% static 'images/learning-hero.jpg' %}" alt="Learning" class="img-fluid rounded shadow">
+        </div>
+    </div>
+    
+    <!-- Featured Courses -->
+    <div class="row mb-5">
+        <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">Featured Courses</h2>
+            <a href="#" class="btn btn-outline-success">View All Courses</a>
+        </div>
+        
+        {% if courses %}
+            {% for course in courses %}
+            <div class="col-md-4 mb-4">
+                <div class="card shadow h-100">
+                    {% if course.thumbnail %}
+                    <img src="{{ course.thumbnail.url }}" class="card-img-top" alt="{{ course.title }}">
+                    {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="fas fa-graduation-cap fa-4x text-muted"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-success">{{ course.level|title }}</span>
+                            <small class="text-muted">{{ course.modules.count }} modules</small>
+                        </div>
+                        <h5 class="card-title">{{ course.title }}</h5>
+                        <p class="card-text">{{ course.description|truncatechars:100 }}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted">By {{ course.instructor.get_full_name|default:course.instructor.username }}</small>
+                            <a href="{% url 'course_details' pk=course.pk %}" class="btn btn-sm btn-outline-success">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <p class="mb-0">No courses available yet. Check back soon!</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Learning Paths -->
+    <div class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="fw-bold">Learning Paths</h2>
+            <p class="lead">Structured learning journeys for different roles</p>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-seedling fa-2x"></i>
+                    </div>
+                    <h4>Farmer Path</h4>
+                    <p>Learn sustainable farming practices, crop management, and how to market your produce effectively.</p>
+                    <a href="#" class="btn btn-outline-success">Start Learning</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-store fa-2x"></i>
+                    </div>
+                    <h4>Business Path</h4>
+                    <p>Master business skills, pricing strategies, and customer relationship management for agricultural businesses.</p>
+                    <a href="#" class="btn btn-outline-success">Start Learning</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-body text-center">
+                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="fas fa-truck fa-2x"></i>
+                    </div>
+                    <h4>Delivery Path</h4>
+                    <p>Learn efficient delivery routes, customer service, and how to maintain product quality during transport.</p>
+                    <a href="#" class="btn btn-outline-success">Start Learning</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resources -->
+    <div class="row mb-5">
+        <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">Resources</h2>
+            <a href="{% url 'resources_list' %}" class="btn btn-outline-success">View All Resources</a>
+        </div>
+        
+        {% if resources %}
+            {% for resource in resources %}
+            <div class="col-md-3 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            {% if resource.resource_type == 'pdf' %}
+                            <i class="fas fa-file-pdf fa-3x text-danger"></i>
+                            {% elif resource.resource_type == 'video' %}
+                            <i class="fas fa-video fa-3x text-primary"></i>
+                            {% elif resource.resource_type == 'link' %}
+                            <i class="fas fa-link fa-3x text-info"></i>
+                            {% else %}
+                            <i class="fas fa-tools fa-3x text-success"></i>
+                            {% endif %}
+                        </div>
+                        <h5 class="card-title text-center">{{ resource.title }}</h5>
+                        <p class="card-text text-center">{{ resource.description|truncatechars:80 }}</p>
+                        <div class="d-grid">
+                            <a href="{% url 'resource_details' pk=resource.pk %}" class="btn btn-sm btn-outline-success">View Resource</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <p class="mb-0">No resources available yet. Check back soon!</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Learning Progress (for logged-in users) -->
+    {% if user.is_authenticated %}
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h2 class="fw-bold">Your Learning Progress</h2>
+            <p class="lead">Track your courses and achievements</p>
+        </div>
+        
+        {% if learning_progress %}
+            {% for progress in learning_progress %}
+            <div class="col-md-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title mb-0">{{ progress.course.title }}</h5>
+                            <span class="badge {% if progress.is_completed %}bg-success{% else %}bg-warning{% endif %}">
+                                {% if progress.is_completed %}Completed{% else %}In Progress{% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="progress mb-3" style="height: 10px;">
+                            {% with completed_modules=progress.completed_modules.count %}
+                            {% with total_modules=progress.course.modules.count %}
+                            {% if total_modules > 0 %}
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ completed_modules|div:total_modules|multiply:100 }}%;" 
+                                     aria-valuenow="{{ completed_modules|div:total_modules|multiply:100 }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            {% else %}
+                                <div class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            {% endif %}
+                            {% endwith %}
+                            {% endwith %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">Last accessed: {{ progress.last_accessed|date:"M d, Y" }}</small>
+                            <a href="{% url 'course_details' pk=progress.course.pk %}" class="btn btn-sm btn-success">Continue Learning</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <p class="mb-0">You haven't started any courses yet. Browse our courses to get started!</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

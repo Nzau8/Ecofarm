@@ -1,0 +1,445 @@
+{% extends 'layout.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Checkout</h1>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Order Details -->
+        <div class="col-lg-8">
+            <!-- Buyer Information -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Contact Information</h5>
+                    <form id="checkoutForm" method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-control" name="full_name" 
+                                       value="{{ request.user.get_full_name }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" name="phone_number" 
+                                       value="{{ request.user.phone_number }}" required
+                                       pattern="^(?:254|\+254|0)?([7-9]{1}[0-9]{8})$"
+                                       placeholder="e.g., 0712345678">
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Email (Optional)</label>
+                                <input type="email" class="form-control" name="email" 
+                                       value="{{ request.user.email }}">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Order Items -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Order Items</h5>
+                    {% for item in cart.items.all %}
+                    <div class="order-item mb-4 {% if not forloop.last %}border-bottom pb-4{% endif %}">
+                        <div class="row align-items-center">
+                            <!-- Product Image -->
+                            <div class="col-2">
+                                {% if item.product.images.first %}
+                                <img src="{{ item.product.images.first.image.url }}" 
+                                     alt="{{ item.product.name }}" class="img-fluid rounded">
+                                {% else %}
+                                <div class="placeholder-image bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 60px;">
+                                    <i class="bi bi-image text-muted"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Product Details -->
+                            <div class="col-6">
+                                <h6 class="mb-1">{{ item.product.name }}</h6>
+                                <p class="text-muted mb-1">
+                                    Seller: 
+                                    <a href="#" class="text-decoration-none" data-bs-toggle="modal" 
+                                       data-bs-target="#messageSellerModal-{{ item.product.seller.id }}">
+                                        {{ item.product.seller.get_full_name|default:item.product.seller.username }}
+                                        <i class="bi bi-chat-dots ms-1"></i>
+                                    </a>
+                                </p>
+                                <p class="text-muted mb-0">
+                                    {{ item.quantity }} × KES {{ item.product.price|intcomma }}
+                                </p>
+                            </div>
+
+                            <!-- Delivery Method -->
+                            <div class="col-4">
+                                <div class="delivery-method-section">
+                                    <select class="form-select delivery-method" 
+                                            name="delivery_method_{{ item.id }}"
+                                            data-item-id="{{ item.id }}">
+                                        <option value="self_pickup">Self Pickup</option>
+                                        <option value="boda_delivery">Boda Delivery</option>
+                                    </select>
+                                    <div class="boda-options mt-3" id="boda_options_{{ item.id }}" style="display: none;">
+                                        <div class="mb-2">
+                                            <select class="form-select boda-rider" name="boda_rider_{{ item.id }}">
+                                                <option value="">Select Boda Rider</option>
+                                                {% for rider in boda_riders %}
+                                                <option value="{{ rider.id }}">{{ rider.get_full_name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-primary btn-sm w-100"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#messageBodaModal-{{ item.id }}">
+                                            <i class="bi bi-chat"></i> Message Rider
+                                        </button>
+                                    </div>
+                                    <div class="self-pickup-options mt-3" id="self_pickup_options_{{ item.id }}" style="display: none;">
+                                        <button type="button" class="btn btn-outline-primary btn-sm w-100"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#messageSellerModal-{{ item.product.seller.id }}">
+                                            <i class="bi bi-chat"></i> Message Seller for Pickup Details
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Delivery Information -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Delivery Information</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Delivery Address</label>
+                        <textarea class="form-control" name="delivery_address" rows="3" 
+                                 placeholder="Enter your complete delivery address"></textarea>
+                        <div class="form-text">
+                            Required for items with Boda Delivery. For self-pickup items, 
+                            seller location will be shared after order confirmation.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Delivery Instructions (Optional)</label>
+                        <textarea class="form-control" name="delivery_instructions" rows="2" 
+                                 placeholder="Any special instructions for delivery"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Payment Method</h5>
+                    <div class="payment-methods">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="payment_method" 
+                                   id="mpesa" value="mpesa" checked>
+                            <label class="form-check-label" for="mpesa">
+                                <img src="{% static 'images/mpesa.png' %}" alt="M-Pesa" height="30" class="me-2">
+                                M-Pesa
+                            </label>
+                        </div>
+                        <div id="mpesaSection">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                You will receive an M-Pesa prompt on your phone to complete the payment.
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">M-Pesa Phone Number</label>
+                                <input type="tel" class="form-control" name="mpesa_phone" 
+                                       pattern="^(?:254|\+254|0)?([7-9]{1}[0-9]{8})$"
+                                       placeholder="e.g., 0712345678" required>
+                                <div class="form-text">Enter the phone number registered with M-Pesa</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Order Summary</h5>
+                    
+                    <!-- Items Summary -->
+                    {% for item in cart.items.all %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{{ item.product.name }} × {{ item.quantity }}</span>
+                        <span>KES {{ item.product.price|multiply:item.quantity|intcomma }}</span>
+                    </div>
+                    {% endfor %}
+                    
+                    <hr>
+                    
+                    <!-- Totals -->
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal</span>
+                        <span>KES {{ cart_total|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Delivery Fee</span>
+                        <span id="delivery-fee">KES {{ delivery_fee|default:"0"|intcomma }}</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-4">
+                        <strong>Total</strong>
+                        <strong id="total-amount">KES {{ total_with_delivery|intcomma }}</strong>
+                    </div>
+                    
+                    <!-- Place Order Button -->
+                    <button type="submit" class="btn btn-primary btn-lg w-100" form="checkoutForm">
+                        Place Order
+                    </button>
+                    
+                    <!-- Terms -->
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            By placing your order, you agree to our Terms of Service and Privacy Policy
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Seller Modals -->
+    {% for item in cart.items.all %}
+    <div class="modal fade" id="messageSellerModal-{{ item.product.seller.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Message to {{ item.product.seller.get_full_name|default:item.product.seller.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form class="message-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="recipient_id" value="{{ item.product.seller.id }}">
+                        <div class="mb-3">
+                            <label class="form-label">Your Message</label>
+                            <textarea class="form-control" name="message" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Boda Rider Modal -->
+    <div class="modal fade" id="messageBodaModal-{{ item.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Message to Boda Rider</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form class="message-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Your Message</label>
+                            <textarea class="form-control" name="message" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Format currency helper
+function formatCurrency(amount) {
+    return 'KES ' + amount.toLocaleString('en-US');
+}
+
+// Update delivery fee and total when delivery method changes
+document.querySelectorAll('.delivery-method').forEach(select => {
+    select.addEventListener('change', function() {
+        const itemId = this.dataset.itemId;
+        const bodaOptions = document.getElementById(`boda_options_${itemId}`);
+        const selfPickupOptions = document.getElementById(`self_pickup_options_${itemId}`);
+        
+        if (this.value === 'boda_delivery') {
+            bodaOptions.style.display = 'block';
+            selfPickupOptions.style.display = 'none';
+        } else if (this.value === 'self_pickup') {
+            bodaOptions.style.display = 'none';
+            selfPickupOptions.style.display = 'block';
+        }
+        
+        updateTotals();
+    });
+});
+
+// Calculate and update totals
+function updateTotals() {
+    let deliveryFee = 0;
+    document.querySelectorAll('.delivery-method').forEach(select => {
+        if (select.value === 'boda_delivery') {
+            deliveryFee += 200; // Add delivery fee per item with boda delivery
+        }
+    });
+    
+    const subtotal = parseFloat('{{ cart_total }}');
+    const total = subtotal + deliveryFee;
+    
+    document.getElementById('delivery-fee').textContent = formatCurrency(deliveryFee);
+    document.getElementById('total-amount').textContent = formatCurrency(total);
+}
+
+// Phone number formatting
+document.querySelectorAll('input[type="tel"]').forEach(input => {
+    input.addEventListener('input', function() {
+        let phoneNumber = this.value.replace(/\D/g, '');
+        if (phoneNumber.length > 0) {
+            if (phoneNumber.startsWith('0')) {
+                phoneNumber = '254' + phoneNumber.substring(1);
+            } else if (!phoneNumber.startsWith('254')) {
+                phoneNumber = '254' + phoneNumber;
+            }
+            this.value = phoneNumber;
+        }
+    });
+});
+
+// Handle checkout form submission
+document.getElementById('checkoutForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+    
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.href = data.redirect_url;
+        } else {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.messages').appendChild(alert);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Place Order';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            An error occurred while processing your order. Please try again.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.messages').appendChild(alert);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Place Order';
+    });
+});
+
+// Handle message forms
+document.querySelectorAll('.message-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        
+        fetch('{% url "message_seller" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const modal = bootstrap.Modal.getInstance(this.closest('.modal'));
+                modal.hide();
+                
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    Message sent successfully!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.messages').appendChild(alert);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                Error sending message. Please try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            this.appendChild(alert);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Send Message';
+        });
+    });
+});
+
+// Initialize delivery method options on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.delivery-method').forEach(select => {
+        const itemId = select.dataset.itemId;
+        const selfPickupOptions = document.getElementById(`self_pickup_options_${itemId}`);
+        
+        // Show self-pickup options by default since it's the default selection
+        if (select.value === 'self_pickup') {
+            selfPickupOptions.style.display = 'block';
+        }
+    });
+    updateTotals();
+});
+</script>
+{% endblock %}

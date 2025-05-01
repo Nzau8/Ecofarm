@@ -1,0 +1,118 @@
+{% extends 'layout.html' %}
+{% load static %}
+
+{% block title %}Community - {{ block.super }}{% endblock %}
+
+{% block page_content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-0">Community Discussions</h1>
+            <p class="text-muted">Join the conversation with other farmers, buyers, and boda riders</p>
+        </div>
+        <div class="col-md-4 text-end">
+            {% if user.is_authenticated %}
+            <a href="{% url 'create_discussion' %}" class="btn btn-success">
+                <i class="fas fa-plus-circle me-2"></i>Start New Discussion
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Discussion Categories -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-success active">All</button>
+                <button type="button" class="btn btn-outline-success">Farming Tips</button>
+                <button type="button" class="btn btn-outline-success">Market Prices</button>
+                <button type="button" class="btn btn-outline-success">Delivery</button>
+                <button type="button" class="btn btn-outline-success">General</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discussions List -->
+    <div class="row">
+        <div class="col-12">
+            {% for discussion in discussions %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="card-title mb-1">
+                                <a href="{% url 'discussion_details' discussion.pk %}" class="text-decoration-none text-dark">
+                                    {{ discussion.title }}
+                                </a>
+                            </h5>
+                            <p class="card-text text-muted mb-2">{{ discussion.content|truncatewords:30 }}</p>
+                            <div class="d-flex align-items-center">
+                                {% if discussion.author.profile_picture %}
+                                    <img src="{{ discussion.author.profile_picture.url }}" 
+                                         class="rounded-circle me-2" width="32" height="32" 
+                                         alt="{{ discussion.author.get_full_name }}">
+                                {% else %}
+                                    <img src="{% static 'images/default-avatar.png' %}" 
+                                         class="rounded-circle me-2" width="32" height="32" 
+                                         alt="{{ discussion.author.get_full_name }}">
+                                {% endif %}
+                                <span class="text-muted">
+                                    Posted by {{ discussion.author.get_full_name }} • {{ discussion.created_at|timesince }} ago
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-success me-2">{{ discussion.category }}</span>
+                            <div class="mt-2">
+                                <span class="text-muted me-3">
+                                    <i class="fas fa-comment me-1"></i>{{ discussion.comments_count }}
+                                </span>
+                                <span class="text-muted">
+                                    <i class="fas fa-eye me-1"></i>{{ discussion.views_count }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5">
+                <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                <h4>No discussions yet</h4>
+                <p class="text-muted">Be the first to start a discussion!</p>
+                {% if user.is_authenticated %}
+                <a href="{% url 'create_discussion' %}" class="btn btn-success">Start Discussion</a>
+                {% else %}
+                <a href="{% url 'login' %}" class="btn btn-success">Login to Start Discussion</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if discussions.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if discussions.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ discussions.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+
+            {% for num in discussions.paginator.page_range %}
+            <li class="page-item {% if discussions.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+
+            {% if discussions.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ discussions.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %} 

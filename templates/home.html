@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}EcoFarm Connect - Home{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="row align-items-center py-5">
+        <div class="col-md-6">
+            <h1 class="display-4 fw-bold mb-4">Welcome to EcoFarm Connect</h1>
+            <p class="lead mb-4">Connecting farmers, buyers, and delivery partners in Kenya to create a sustainable agricultural ecosystem.</p>
+            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                <a href="{% url 'marketplace' %}" class="btn btn-primary btn-lg px-4 me-md-2">Browse Marketplace</a>
+                <a href="{% url 'signup' %}" class="btn btn-outline-secondary btn-lg px-4">Join Now</a>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <img src="https://via.placeholder.com/600x400" alt="Farm Image" class="img-fluid rounded">
+        </div>
+    </div>
+
+    <!-- Featured Products Section -->
+    <section class="py-5">
+        <h2 class="text-center mb-4">Featured Products</h2>
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for product in featured_products %}
+            <div class="col">
+                <div class="card h-100">
+                    {% if product.images.first %}
+                    <img src="{{ product.images.first.image.url }}" class="card-img-top" alt="{{ product.name }}">
+                    {% else %}
+                    <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="{{ product.name }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.name }}</h5>
+                        <p class="card-text">{{ product.description|truncatewords:20 }}</p>
+                        <p class="card-text"><strong>KES {{ product.price }}</strong> per {{ product.unit }}</p>
+                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Recent Reviews Section -->
+    <section class="py-5 bg-light">
+        <h2 class="text-center mb-4">Recent Reviews</h2>
+        <div class="row">
+            {% for review in recent_reviews %}
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="card-title mb-0">{{ review.product.name }}</h5>
+                            <div class="text-warning">
+                                {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= review.rating %}
+                                <i class="bi bi-star-fill"></i>
+                                {% else %}
+                                <i class="bi bi-star"></i>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <p class="card-text">{{ review.comment|truncatewords:30 }}</p>
+                        <p class="card-text"><small class="text-muted">By {{ review.buyer.username }} on {{ review.created_at|date }}</small></p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-5">
+        <h2 class="text-center mb-4">Why Choose EcoFarm Connect?</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <i class="bi bi-shop display-4 text-primary mb-3"></i>
+                    <h3>Easy Marketplace</h3>
+                    <p>Browse and buy agricultural products directly from local farmers.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <i class="bi bi-truck display-4 text-primary mb-3"></i>
+                    <h3>Fast Delivery</h3>
+                    <p>Quick and reliable delivery through our network of boda riders.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <i class="bi bi-book display-4 text-primary mb-3"></i>
+                    <h3>Learning Hub</h3>
+                    <p>Access resources and learn about sustainable farming practices.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %} 

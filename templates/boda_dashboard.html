@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Boda Rider Dashboard - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Rider Profile</h5>
+                    <div class="user-profile mb-4">
+                        <div class="d-flex align-items-center">
+                            <img src="{% if user.profile_picture %}{{ user.profile_picture.url }}{% else %}{% static 'images/default-profile.svg' %}{% endif %}" 
+                                 alt="{{ user.get_full_name }}" class="rounded-circle me-3" style="width: 64px; height: 64px; object-fit: cover;">
+                            <div>
+                                <h4 class="mb-1">{{ user.get_full_name|default:user.username }}</h4>
+                                <p class="text-muted mb-0">{{ user.get_role_display }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group">
+                        <a href="#active" class="list-group-item list-group-item-action active">Active Deliveries</a>
+                        <a href="#completed" class="list-group-item list-group-item-action">Completed Deliveries</a>
+                        <a href="{% url 'edit_profile' %}" class="list-group-item list-group-item-action">Edit Profile</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Statistics</h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Operating Zone:</span>
+                        <span class="text-success">{{ user.operating_zone|default:"Not set" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Completed Deliveries:</span>
+                        <span class="text-success">{{ completed_deliveries|length }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Active Deliveries:</span>
+                        <span class="text-primary">{{ active_deliveries|length }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9">
+            <!-- Active Deliveries -->
+            <div class="card mb-4" id="active">
+                <div class="card-header">
+                    <h5 class="mb-0">Active Deliveries</h5>
+                </div>
+                <div class="card-body">
+                    {% if active_deliveries %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Pickup Location</th>
+                                        <th>Delivery Location</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in active_deliveries %}
+                                    <tr>
+                                        <td>#{{ order.id }}</td>
+                                        <td>{{ order.seller.location }}</td>
+                                        <td>{{ order.delivery_address }}</td>
+                                        <td>
+                                            <span class="badge bg-primary">
+                                                {{ order.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'delivery_tracking' order.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                Track
+                                            </a>
+                                            <button class="btn btn-sm btn-success"
+                                                    onclick="updateDeliveryStatus({{ order.id }}, 'delivered')">
+                                                Mark Delivered
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted">No active deliveries.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Completed Deliveries -->
+            <div class="card" id="completed">
+                <div class="card-header">
+                    <h5 class="mb-0">Completed Deliveries</h5>
+                </div>
+                <div class="card-body">
+                    {% if completed_deliveries %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Date</th>
+                                        <th>Pickup Location</th>
+                                        <th>Delivery Location</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in completed_deliveries %}
+                                    <tr>
+                                        <td>#{{ order.id }}</td>
+                                        <td>{{ order.updated_at|date:"M d, Y" }}</td>
+                                        <td>{{ order.seller.location }}</td>
+                                        <td>{{ order.delivery_address }}</td>
+                                        <td>
+                                            <span class="badge bg-success">
+                                                {{ order.get_status_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted">No completed deliveries yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function updateDeliveryStatus(orderId, status) {
+    if (confirm('Are you sure you want to mark this delivery as complete?')) {
+        fetch(`/order/${orderId}/confirm-delivery/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Error updating delivery status');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
+{% endblock %} 

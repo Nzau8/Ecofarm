@@ -1,0 +1,147 @@
+{% load static %}
+
+<div class="quick-view-content">
+    <div class="row">
+        <!-- Product Images -->
+        <div class="col-md-6">
+            <div id="quickViewCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    {% if product.seasonal_price %}
+                    <div class="discount-badge">
+                        <span class="badge bg-danger">
+                            Sale! {{ product.get_discount_percentage }}% OFF
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% for image in product.images.all %}
+                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                        <img src="{{ image.image.url }}" class="d-block w-100" alt="{{ product.name }}" 
+                             style="height: 300px; object-fit: cover;">
+                    </div>
+                    {% empty %}
+                    <div class="carousel-item active">
+                        <img src="https://via.placeholder.com/300x300" class="d-block w-100" alt="{{ product.name }}" 
+                             style="height: 300px; object-fit: cover;">
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if product.images.count > 1 %}
+                <button class="carousel-control-prev" type="button" data-bs-target="#quickViewCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#quickViewCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon"></span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Product Information -->
+        <div class="col-md-6">
+            <h4>{{ product.name }}</h4>
+            
+            <!-- Tags -->
+            <div class="mb-3">
+                {% for tag in product.tags.all %}
+                <span class="badge bg-secondary">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+
+            <!-- Price Section -->
+            <div class="mb-3">
+                {% if product.seasonal_price %}
+                <div class="mb-2">
+                    <span class="text-decoration-line-through text-muted h6">KES {{ product.price }}</span>
+                    <span class="h5 text-danger ms-2">KES {{ product.get_current_price }}</span>
+                    <span class="badge bg-danger">{{ product.get_discount_percentage }}% OFF</span>
+                </div>
+                {% else %}
+                <h5 class="mb-2">KES {{ product.price }}</h5>
+                {% endif %}
+                <span class="text-muted">per {{ product.unit }}</span>
+            </div>
+
+            <!-- Rating Summary -->
+            {% if product.average_rating > 0 %}
+            <div class="mb-3">
+                <div class="d-flex align-items-center">
+                    <div class="rating-stars">
+                        {% for i in "12345"|make_list %}
+                        <i class="bi bi-star{% if forloop.counter <= product.average_rating %}-fill{% endif %}"></i>
+                        {% endfor %}
+                    </div>
+                    <span class="ms-2">{{ product.average_rating|floatformat:1 }} ({{ product.total_reviews }} reviews)</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Variants -->
+            {% if product.variants.exists %}
+            <div class="mb-3">
+                <h6>Available Variants</h6>
+                <div class="row g-2">
+                    {% for variant in product.variants.all %}
+                    <div class="col-md-6">
+                        <div class="card variant-card" 
+                             data-variant-id="{{ variant.id }}"
+                             data-price="{{ variant.price }}"
+                             data-stock="{{ variant.stock }}">
+                            <div class="card-body p-2">
+                                <h6 class="mb-1">{{ variant }}</h6>
+                                <p class="mb-1">KES {{ variant.price }}</p>
+                                <small class="text-muted">Stock: {{ variant.stock }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Stock Information -->
+            <div class="mb-3">
+                <p class="stock-status {% if product.is_low_stock %}text-warning{% endif %}">
+                    {{ product.quantity }} {{ product.unit }} available
+                    {% if product.is_low_stock %}(Low Stock){% endif %}
+                </p>
+                {% if product.min_order_quantity > 1 %}
+                <p class="text-muted small">Minimum order: {{ product.min_order_quantity }} {{ product.unit }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Action Buttons -->
+            {% if user.is_authenticated %}
+            <div class="d-grid gap-2">
+                {% if product.quantity > 0 %}
+                <form method="post" action="{% url 'add_to_cart' %}" class="d-grid">
+                    {% csrf_token %}
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <input type="hidden" name="variant_id" id="selectedVariantId">
+                    <div class="input-group mb-3">
+                        <button type="button" class="btn btn-outline-secondary decrease-quantity">-</button>
+                        <input type="number" class="form-control text-center quantity-input" name="quantity" 
+                               value="{{ product.min_order_quantity }}" 
+                               min="{{ product.min_order_quantity }}" 
+                               max="{{ product.max_order_quantity|default:product.quantity }}">
+                        <button type="button" class="btn btn-outline-secondary increase-quantity">+</button>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-cart-plus"></i> Add to Cart
+                    </button>
+                </form>
+                {% else %}
+                <button type="button" class="btn btn-primary" disabled>Out of Stock</button>
+                {% endif %}
+                
+                <button type="button" class="btn btn-outline-primary" onclick="window.location.href='{% url 'product_detail' product.pk %}'">
+                    View Full Details
+                </button>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                Please <a href="{% url 'login' %}">login</a> to purchase.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

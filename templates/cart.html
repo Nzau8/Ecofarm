@@ -1,0 +1,657 @@
+{% extends 'layout.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block title %}Shopping Cart{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Shopping Cart</h1>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if cart.items.all %}
+    <div class="row">
+        <!-- Cart Items -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    {% for item in cart.items.all %}
+                    <div class="cart-item mb-4 {% if not forloop.last %}border-bottom pb-4{% endif %}">
+                        <div class="row align-items-center">
+                            <!-- Product Image -->
+                            <div class="col-md-2">
+                                <a href="{% url 'product_detail' item.product.id %}">
+                                    {% if item.product.images.first %}
+                                    <img src="{{ item.product.images.first.image.url }}" alt="{{ item.product.name }}" 
+                                         class="img-fluid rounded">
+                                    {% else %}
+                                    <div class="placeholder-image bg-light rounded d-flex align-items-center justify-content-center" 
+                                         style="height: 100px;">
+                                        <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                                    </div>
+                                    {% endif %}
+                                </a>
+                            </div>
+
+                            <!-- Product Details -->
+                            <div class="col-md-4">
+                                <h5 class="mb-1">
+                                    <a href="{% url 'product_detail' item.product.id %}" class="text-decoration-none">
+                                        {{ item.product.name }}
+                                    </a>
+                                </h5>
+                                <p class="text-muted mb-1">
+                                    Seller: 
+                                    <a href="#" class="text-decoration-none" data-bs-toggle="modal" 
+                                       data-bs-target="#messageSellerModal-{{ item.product.seller.id }}">
+                                        {{ item.product.seller.get_full_name|default:item.product.seller.username }}
+                                        <i class="bi bi-chat-dots ms-1"></i>
+                                    </a>
+                                    <!-- WhatsApp Button -->
+                                    {% if item.product.seller.phone_number %}
+                                    <a href="{{ item.product.seller.get_whatsapp_link }}?text=Hi, I'm interested in {{ item.product.name|urlencode }}" 
+                                       target="_blank" 
+                                       class="btn btn-whatsapp ms-2">
+                                        <i class="bi bi-whatsapp"></i> WhatsApp
+                                    </a>
+                                    {% endif %}
+                                </p>
+                                <p class="text-muted mb-0">
+                                    Price: KES {{ item.product.price|intcomma }} per {{ item.product.unit }}
+                                </p>
+                            </div>
+
+                            <!-- Quantity Controls -->
+                            <div class="col-md-3">
+                                <form method="post" action="{% url 'add_to_cart' %}" class="update-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="product_id" value="{{ item.product.id }}">
+                                    <div class="input-group">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="decrementQuantity(this)">
+                                            <i class="bi bi-dash"></i>
+                                        </button>
+                                        <input type="number" name="quantity" value="{{ item.quantity }}" 
+                                               min="1" max="{{ item.product.quantity }}"
+                                               class="form-control text-center quantity-input"
+                                               data-price="{{ item.product.price }}"
+                                               onchange="updateItemTotal(this)">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="incrementQuantity(this)">
+                                            <i class="bi bi-plus"></i>
+                                        </button>
+                                    </div>
+                                    <button type="submit" class="btn btn-link btn-sm mt-2 update-btn w-100">
+                                        <i class="bi bi-arrow-clockwise"></i> Update
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Subtotal and Remove -->
+                            <div class="col-md-3 text-end">
+                                <h5 class="mb-2 item-total">
+                                    KES {{ item.product.price|multiply:item.quantity|intcomma }}
+                                </h5>
+                                <form method="post" action="{% url 'remove_from_cart' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="product_id" value="{{ item.product.id }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-trash"></i> Remove
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Method Selection -->
+                        <div class="delivery-options mt-3">
+                            <div class="row">
+                                <div class="col-md-8 offset-md-2">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="mb-3">Delivery Method for this item:</h6>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input delivery-method" type="radio" 
+                                                               name="delivery_method_{{ item.id }}" value="self_pickup"
+                                                               id="self_pickup_{{ item.id }}" checked>
+                                                        <label class="form-check-label" for="self_pickup_{{ item.id }}">
+                                                            <i class="bi bi-shop"></i> Self Pickup
+                                                        </label>
+                                                    </div>
+                                                    <div class="self-pickup-options mt-2" id="self_pickup_options_{{ item.id }}" style="display: block;">
+                                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#messageSellerModal-{{ item.product.seller.id }}">
+                                                            <i class="bi bi-chat"></i> Message Seller for Pickup Details
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input delivery-method" type="radio" 
+                                                               name="delivery_method_{{ item.id }}" value="boda_delivery"
+                                                               id="boda_delivery_{{ item.id }}">
+                                                        <label class="form-check-label" for="boda_delivery_{{ item.id }}">
+                                                            <i class="bi bi-bicycle"></i> Boda Delivery
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Boda Delivery Options (hidden by default) -->
+                                            <div class="boda-options mt-3" id="boda_options_{{ item.id }}" style="display: none;">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Delivery Location</label>
+                                                    <input type="text" class="form-control delivery-location" 
+                                                           placeholder="Enter delivery address">
+                                                </div>
+                                                
+                                                <!-- Available Boda Riders -->
+                                                <div class="available-riders mb-3">
+                                                    <label class="form-label">Available Boda Riders</label>
+                                                    <div class="riders-list">
+                                                        {% for rider in available_riders %}
+                                                        <div class="rider-card mb-2 p-3 border rounded {% if rider.is_available %}bg-white{% else %}bg-light{% endif %}">
+                                                            <div class="d-flex align-items-center">
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input rider-select" type="radio" 
+                                                                           name="rider_{{ item.id }}" value="{{ rider.id }}"
+                                                                           id="rider_{{ item.id }}_{{ rider.id }}"
+                                                                           {% if not rider.is_available %}disabled{% endif %}>
+                                                                    <label class="form-check-label" for="rider_{{ item.id }}_{{ rider.id }}">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <!-- Rider Photo -->
+                                                                            <div class="rider-photo me-3">
+                                                                                {% if rider.profile_photo %}
+                                                                                <img src="{{ rider.profile_photo.url }}" alt="{{ rider.get_full_name }}"
+                                                                                     class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;">
+                                                                                {% else %}
+                                                                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center"
+                                                                                     style="width: 48px; height: 48px;">
+                                                                                    <i class="bi bi-person text-white"></i>
+                                                                                </div>
+                                                                                {% endif %}
+                                                                            </div>
+                                                                            
+                                                                            <!-- Rider Details -->
+                                                                            <div>
+                                                                                <h6 class="mb-1">{{ rider.get_full_name }}</h6>
+                                                                                <div class="text-muted small">
+                                                                                    <span class="me-2">
+                                                                                        <i class="bi bi-star-fill text-warning"></i>
+                                                                                        {{ rider.rating|default:"New" }}
+                                                                                    </span>
+                                                                                    <span class="me-2">
+                                                                                        <i class="bi bi-bicycle me-1"></i>
+                                                                                        {{ rider.completed_deliveries }} deliveries
+                                                                                    </span>
+                                                                                    <span>
+                                                                                        <i class="bi bi-geo-alt me-1"></i>
+                                                                                        {{ rider.operating_zone }}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div class="text-muted small mt-1">
+                                                                                    {% if rider.is_available %}
+                                                                                    <span class="text-success">
+                                                                                        <i class="bi bi-circle-fill me-1"></i>
+                                                                                        Available Now
+                                                                                    </span>
+                                                                                    {% if rider.phone_number %}
+                                                                                    <a href="{{ rider.get_whatsapp_link }}?text=Hi, I need a delivery service" 
+                                                                                       target="_blank" 
+                                                                                       class="btn btn-whatsapp ms-2">
+                                                                                        <i class="bi bi-whatsapp"></i> WhatsApp
+                                                                                    </a>
+                                                                                    {% endif %}
+                                                                                    {% else %}
+                                                                                    <span class="text-danger">
+                                                                                        <i class="bi bi-circle-fill me-1"></i>
+                                                                                        Unavailable
+                                                                                    </span>
+                                                                                    {% endif %}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {% empty %}
+                                                        <div class="tpyuted"></i>
+                                                            <p class="mb-0">No riders available in this area</p>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span class="text-muted">Estimated Delivery Fee: KES 200</span>
+                                                    <button type="button" class="btn btn-outline-primary btn-sm message-rider-btn"
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#messageBodaModal"
+                                                            data-item-id="{{ item.id }}"
+                                                            data-seller-id="{{ item.product.seller.id }}"
+                                                            disabled>
+                                                        <i class="bi bi-chat"></i> Message Boda Rider
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Order Summary</h5>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">KES {{ subtotal|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Delivery Fee:</span>
+                        <span id="delivery-fee">KES {{ delivery_fee|default:"0"|intcomma }}</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Total:</strong>
+                        <strong id="total">KES {{ total|intcomma }}</strong>
+                    </div>
+                    <a href="{% url 'checkout' %}" class="btn btn-primary w-100">
+                        Proceed to Checkout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Seller Modals -->
+    {% for item in cart.items.all %}
+    <div class="modal fade" id="messageSellerModal-{{ item.product.seller.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Message to {{ item.product.seller.get_full_name|default:item.product.seller.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form class="message-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="recipient_id" value="{{ item.product.seller.id }}">
+                        <div class="mb-3">
+                            <label class="form-label">Your Message</label>
+                            <textarea class="form-control" name="message" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Message Boda Rider Modal -->
+    <div class="modal fade" id="messageBodaModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Order Communication</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Chat Participants -->
+                    <div class="chat-participants mb-3">
+                        <div class="d-flex align-items-center" id="chat-participants-container">
+                            <!-- Participants will be loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="chat-messages p-3 bg-light rounded" style="height: 300px; overflow-y: auto;">
+                        <div id="messages-container">
+                            <!-- Messages will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Message Form -->
+                    <form class="message-form mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="order_id" value="{{ order.id }}">
+                        <input type="hidden" name="item_id" id="modal-item-id">
+                        <input type="hidden" name="rider_id" id="modal-rider-id">
+                        <input type="hidden" name="seller_id" id="modal-seller-id">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="message" 
+                                   placeholder="Type your message..." required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send"></i> Send
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-cart-x display-1 text-muted"></i>
+        <h3 class="mt-3">Your cart is empty</h3>
+        <p class="text-muted">Looks like you haven't added any items to your cart yet.</p>
+        <a href="{% url 'marketplace' %}" class="btn btn-primary">Continue Shopping</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function formatCurrency(amount) {
+    return 'KES ' + amount.toLocaleString('en-US');
+}
+
+function updateItemTotal(input) {
+    const quantity = parseInt(input.value);
+    const price = parseFloat(input.dataset.price);
+    const itemTotal = quantity * price;
+    const totalElement = input.closest('.cart-item').querySelector('.item-total');
+    totalElement.textContent = formatCurrency(itemTotal);
+    updateTotals();
+}
+
+function incrementQuantity(button) {
+    const input = button.parentElement.querySelector('input[type="number"]');
+    const max = parseInt(input.getAttribute('max'));
+    let value = parseInt(input.value);
+    if (value < max) {
+        input.value = value + 1;
+        updateItemTotal(input);
+    }
+}
+
+function decrementQuantity(button) {
+    const input = button.parentElement.querySelector('input[type="number"]');
+    let value = parseInt(input.value);
+    if (value > 1) {
+        input.value = value - 1;
+        updateItemTotal(input);
+    }
+}
+
+function updateTotals() {
+    let subtotal = 0;
+    document.querySelectorAll('.quantity-input').forEach(input => {
+        const quantity = parseInt(input.value);
+        const price = parseFloat(input.dataset.price);
+        subtotal += quantity * price;
+    });
+
+    let deliveryFee = 0;
+    document.querySelectorAll('.delivery-method:checked').forEach(radio => {
+        if (radio.value === 'boda_delivery') {
+            deliveryFee += 200; // Add delivery fee per item with boda delivery
+        }
+    });
+
+    const total = subtotal + deliveryFee;
+
+    document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('delivery-fee').textContent = formatCurrency(deliveryFee);
+    document.getElementById('total').textContent = formatCurrency(total);
+}
+
+// Handle delivery method changes
+document.querySelectorAll('.delivery-method').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const itemId = this.id.split('_').pop();
+        const bodaOptions = document.getElementById(`boda_options_${itemId}`);
+        const selfPickupOptions = document.getElementById(`self_pickup_options_${itemId}`);
+        
+        if (this.value === 'boda_delivery') {
+            bodaOptions.style.display = 'block';
+            selfPickupOptions.style.display = 'none';
+        } else if (this.value === 'self_pickup') {
+            bodaOptions.style.display = 'none';
+            selfPickupOptions.style.display = 'block';
+        }
+        
+        updateTotals();
+    });
+});
+
+// Handle form submissions
+document.querySelectorAll('.update-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const updateBtn = this.querySelector('.update-btn');
+        
+        updateBtn.disabled = true;
+        updateBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                updateTotals();
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show mt-3';
+                alert.innerHTML = `
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                this.appendChild(alert);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show mt-3';
+            alert.innerHTML = `
+                Error updating cart. Please try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            this.appendChild(alert);
+        })
+        .finally(() => {
+            updateBtn.disabled = false;
+            updateBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Update';
+        });
+    });
+});
+
+// Handle message forms
+document.querySelectorAll('.message-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        
+        fetch('{% url "message_seller" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const modal = bootstrap.Modal.getInstance(this.closest('.modal'));
+                modal.hide();
+                
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    Message sent successfully!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.messages').appendChild(alert);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                Error sending message. Please try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            this.appendChild(alert);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Send Message';
+        });
+    });
+});
+
+// Handle rider selection
+document.querySelectorAll('.rider-select').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const itemId = this.name.split('_')[1];
+        const riderId = this.value;
+        const messageBtn = this.closest('.boda-options').querySelector('.message-rider-btn');
+        const riderCard = this.closest('.rider-card');
+        const riderName = riderCard.querySelector('h6').textContent;
+        const riderPhoto = riderCard.querySelector('.rider-photo img')?.src || '#';
+        
+        // Store selected rider info
+        messageBtn.dataset.riderId = riderId;
+        messageBtn.dataset.riderName = riderName;
+        messageBtn.dataset.riderPhoto = riderPhoto;
+        
+        // Enable message button when a rider is selected
+        messageBtn.disabled = false;
+        
+        // Update delivery fee based on distance
+        updateDeliveryFee(itemId, riderId);
+    });
+});
+
+function updateDeliveryFee(itemId, riderId) {
+    // Make an AJAX call to calculate delivery fee based on distance
+    fetch(`/api/calculate-delivery-fee/?item=${itemId}&rider=${riderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const feeElement = document.querySelector(`#boda_options_${itemId} .delivery-fee`);
+                feeElement.textContent = `Estimated Delivery Fee: KES ${data.fee}`;
+                updateTotals();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Handle message modal opening
+document.getElementById('messageBodaModal').addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const itemId = button.dataset.itemId;
+    const riderId = button.dataset.riderId;
+    const riderName = button.dataset.riderName;
+    const riderPhoto = button.dataset.riderPhoto;
+    const sellerId = button.dataset.sellerId;
+    
+    // Update hidden form fields
+    document.getElementById('modal-item-id').value = itemId;
+    document.getElementById('modal-rider-id').value = riderId;
+    document.getElementById('modal-seller-id').value = sellerId;
+    
+    // Update chat participants
+    const participantsContainer = document.getElementById('chat-participants-container');
+    participantsContainer.innerHTML = `
+        <div class="participant me-3">
+            <img src="{{ user.profile_photo.url|default:'#' }}" alt="You"
+                 class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+            <span class="ms-2">You (Buyer)</span>
+        </div>
+        <div class="participant me-3">
+            <img src="${riderPhoto}" alt="${riderName}"
+                 class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+            <span class="ms-2">${riderName} (Rider)</span>
+        </div>
+        <div class="participant">
+            <img src="{{ item.product.seller.profile_photo.url|default:'#' }}" alt="{{ item.product.seller.get_full_name }}"
+                 class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+            <span class="ms-2">{{ item.product.seller.get_full_name }} (Seller)</span>
+        </div>
+    `;
+    
+    // Initialize chat with the correct order/conversation ID
+    initializeChat(itemId);
+});
+
+// Chat functionality
+let chatUpdateInterval;
+
+function initializeChat(orderId) {
+    loadMessages(orderId);
+    // Update chat every 5 seconds
+    chatUpdateInterval = setInterval(() => loadMessages(orderId), 5000);
+}
+
+function loadMessages(orderId) {
+    fetch(`/api/order-messages/${orderId}/`)
+        .then(response => response.json())
+        .then(data => {
+            const messagesContainer = document.getElementById('messages-container');
+            messagesContainer.innerHTML = data.messages.map(message => `
+                <div class="message ${message.sender_type}-message mb-2">
+                    <div class="message-content p-2 rounded">
+                        <small class="sender-name">${message.sender_name}</small>
+                        <p class="mb-0">${message.content}</p>
+                        <small class="text-muted">${message.timestamp}</small>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Clean up chat interval when modal is closed
+document.getElementById('messageBodaModal').addEventListener('hidden.bs.modal', function () {
+    if (chatUpdateInterval) {
+        clearInterval(chatUpdateInterval);
+    }
+});
+
+document.getElementById('messageBodaModal').addEventListener('shown.bs.modal', function () {
+    const orderId = this.querySelector('input[name="order_id"]').value;
+    initializeChat(orderId);
+});
+
+// Initialize totals on page load
+document.addEventListener('DOMContentLoaded', updateTotals);
+</script>
+{% endblock %}

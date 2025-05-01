@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Marketplace - EcoFarm Connect{% endblock %}
+
+{% block extra_css %}
+<style>
+.rating-stars {
+    color: #ffc107;
+}
+.filter-section {
+    border-right: 1px solid #dee2e6;
+}
+.price-range-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.tag-badge {
+    cursor: pointer;
+}
+.product-card {
+    transition: transform 0.2s;
+}
+.product-card:hover {
+    transform: translateY(-5px);
+}
+.seasonal-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1;
+}
+.stock-status {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Filters Sidebar -->
+        <div class="col-md-3 filter-section p-4">
+            <h4 class="mb-4">Filters</h4>
+            
+            <!-- Search -->
+            <form method="get" id="filterForm">
+                <div class="mb-4">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Search products..." value="{{ request.GET.search }}">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Categories -->
+                <div class="mb-4">
+                    <label class="form-label">Categories</label>
+                    <select name="category" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.0 }}" {% if request.GET.category == category.0 %}selected{% endif %}>
+                            {{ category.1 }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Price Range -->
+                <div class="mb-4">
+                    <label class="form-label">Price Range (KES)</label>
+                    <div class="price-range-inputs">
+                        <input type="number" name="min_price" class="form-control" placeholder="Min" value="{{ request.GET.min_price }}" min="0">
+                        <span>-</span>
+                        <input type="number" name="max_price" class="form-control" placeholder="Max" value="{{ request.GET.max_price }}" min="0">
+                    </div>
+                </div>
+
+                <!-- Rating Filter -->
+                <div class="mb-4">
+                    <label class="form-label">Minimum Rating</label>
+                    <select name="rating" class="form-select">
+                        <option value="">Any Rating</option>
+                        {% for i in "54321"|make_list %}
+                        <option value="{{ i }}" {% if request.GET.rating == i %}selected{% endif %}>
+                            {{ i }} Stars & Up
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Tags -->
+                <div class="mb-4">
+                    <label class="form-label">Tags</label>
+                    <div class="tags-container">
+                        {% for tag in tags %}
+                        <span class="badge bg-secondary tag-badge me-1 mb-1" 
+                              onclick="toggleTag('{{ tag.name }}')"
+                              data-selected="false">
+                            {{ tag.name }} ({{ tag.product_count }})
+                        </span>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="tags" id="selectedTags" value="{{ request.GET.tags }}">
+                </div>
+
+                <!-- Stock Status -->
+                <div class="mb-4">
+                    <div class="form-check">
+                        <input type="checkbox" name="in_stock" class="form-check-input" id="inStock" 
+                               value="true" {% if request.GET.in_stock == 'true' %}checked{% endif %}>
+                        <label class="form-check-label" for="inStock">In Stock Only</label>
+                    </div>
+                </div>
+
+                <!-- Sort -->
+                <div class="mb-4">
+                    <label class="form-label">Sort By</label>
+                    <select name="sort" class="form-select" onchange="this.form.submit()">
+                        <option value="">Most Recent</option>
+                        <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                        <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                        <option value="rating" {% if request.GET.sort == 'rating' %}selected{% endif %}>Highest Rated</option>
+                        <option value="popularity" {% if request.GET.sort == 'popularity' %}selected{% endif %}>Most Popular</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+                <button type="button" class="btn btn-outline-secondary w-100 mt-2" onclick="clearFilters()">Clear Filters</button>
+            </form>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="col-md-9 py-4">
+            <!-- Recently Viewed Products -->
+            {% if recently_viewed %}
+            <div class="mb-4">
+                <h5>Recently Viewed</h5>
+                <div class="row row-cols-2 row-cols-md-4 g-3">
+                    {% for product in recently_viewed %}
+                    <div class="col">
+                        <div class="card h-100 product-card">
+                            {% if product.images.first %}
+                            <img src="{{ product.images.first.image.url }}" class="card-img-top" alt="{{ product.name }}" style="height: 150px; object-fit: cover;">
+                            {% else %}
+                            <img src="https://via.placeholder.com/150" class="card-img-top" alt="{{ product.name }}" style="height: 150px; object-fit: cover;">
+                            {% endif %}
+                            <div class="card-body">
+                                <h6 class="card-title text-truncate">{{ product.name }}</h6>
+                                <p class="card-text mb-0">KES {{ product.get_current_price }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Products Grid -->
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for product in products %}
+                <div class="col">
+                    <div class="card h-100 product-card">
+                        {% if product.seasonal_price %}
+                        <div class="seasonal-badge">
+                            <span class="badge bg-danger">Sale!</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if product.quantity <= 5 and product.quantity > 0 %}
+                        <div class="stock-status">
+                            <span class="badge bg-warning">Low Stock</span>
+                        </div>
+                        {% elif product.quantity == 0 %}
+                        <div class="stock-status">
+                            <span class="badge bg-danger">Out of Stock</span>
+                        </div>
+                        {% endif %}
+
+                        {% if product.images.first %}
+                        <img src="{{ product.images.first.image.url }}" class="card-img-top" alt="{{ product.name }}" style="height: 200px; object-fit: cover;">
+                        {% else %}
+                        <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="{{ product.name }}" style="height: 200px; object-fit: cover;">
+                        {% endif %}
+
+                        <div class="card-body">
+                            <h5 class="card-title">{{ product.name }}</h5>
+                            <p class="card-text">{{ product.description|truncatewords:20 }}</p>
+                            
+                            <div class="mb-2">
+                                {% for tag in product.tags.all %}
+                                <span class="badge bg-secondary">{{ tag.name }}</span>
+                                {% endfor %}
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                {% if product.seasonal_price %}
+                                <div>
+                                    <span class="text-decoration-line-through text-muted">KES {{ product.price }}</span>
+                                    <span class="h5 mb-0 text-danger">KES {{ product.get_current_price }}</span>
+                                </div>
+                                {% else %}
+                                <span class="h5 mb-0">KES {{ product.price }}</span>
+                                {% endif %}
+                                <span class="badge bg-secondary">{{ product.get_category_display }}</span>
+                            </div>
+
+                            {% if product.average_rating > 0 %}
+                            <div class="mb-2">
+                                <div class="rating-stars">
+                                    {% for i in "12345"|make_list %}
+                                    <i class="bi bi-star{% if forloop.counter <= product.average_rating %}-fill{% endif %}"></i>
+                                    {% endfor %}
+                                </div>
+                                <small class="text-muted">({{ product.total_reviews }} reviews)</small>
+                            </div>
+                            {% endif %}
+
+                            <p class="text-muted small mb-2">
+                                Available: {{ product.quantity }} {{ product.unit }}
+                                {% if product.min_order_quantity > 1 %}
+                                <br>Min order: {{ product.min_order_quantity }} {{ product.unit }}
+                                {% endif %}
+                            </p>
+
+                            {% if product.variants.exists %}
+                            <p class="text-muted small mb-2">
+                                <i class="bi bi-box"></i> {{ product.variant_count }} variants available
+                            </p>
+                            {% endif %}
+
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary">View Details</a>
+                                {% if user.is_authenticated and product.quantity > 0 %}
+                                <form method="post" action="{% url 'add_to_cart' %}" class="d-grid">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                                    <button type="submit" class="btn btn-outline-primary">
+                                        <i class="bi bi-cart-plus"></i> Add to Cart
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <small class="text-muted">
+                                <i class="bi bi-person"></i> {{ product.seller.get_full_name }}
+                                <br>
+                                <i class="bi bi-eye"></i> {{ product.views_count }} views
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info text-center">
+                        No products found matching your criteria.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if products.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if products.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ products.previous_page_number }}{{ request.GET.urlencode }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in products.paginator.page_range %}
+                    <li class="page-item {% if products.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}{{ request.GET.urlencode }}">{{ num }}</a>
+                    </li>
+                    {% endfor %}
+
+                    {% if products.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ products.next_page_number }}{{ request.GET.urlencode }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function toggleTag(tagName) {
+    const input = document.getElementById('selectedTags');
+    let tags = input.value ? input.value.split(',') : [];
+    
+    if (tags.includes(tagName)) {
+        tags = tags.filter(t => t !== tagName);
+    } else {
+        tags.push(tagName);
+    }
+    
+    input.value = tags.join(',');
+    document.getElementById('filterForm').submit();
+}
+
+function clearFilters() {
+    const form = document.getElementById('filterForm');
+    form.reset();
+    form.submit();
+}
+</script>
+{% endblock %}
+{% endblock %}
