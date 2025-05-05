@@ -72,6 +72,7 @@ urlpatterns = [
 
     # Dashboard URLs
     path('seller-dashboard/', views.seller_dashboard, name='seller_dashboard'),
+    path('api/seller/new-orders/', views.get_new_seller_orders, name='get_new_seller_orders'),
     path('buyer-dashboard/', views.buyer_dashboard, name='buyer_dashboard'),
     path('boda-dashboard/', views.boda_dashboard, name='boda_dashboard'),
     path('dashboard/', views.admin_dashboard, name='admin_dashboard'),
@@ -149,4 +150,10 @@ urlpatterns = [
     path('api/mpesa/callback/', views.mpesa_callback, name='mpesa_callback'),
     path('api/mpesa/b2c/timeout/', views.mpesa_b2c_timeout, name='mpesa_b2c_timeout'),
     path('api/mpesa/b2c/result/', views.mpesa_b2c_result, name='mpesa_b2c_result'),
+
+    # Pickup management URLs
+    path('manage-pickups/', views.manage_pickup_orders, name='manage_pickup_orders'),
+    path('confirm-pickup/<int:order_id>/', views.confirm_pickup, name='confirm_pickup'),
+    path('schedule-pickup/<int:order_id>/', views.schedule_pickup, name='schedule_pickup'),
+    path('request-review/<int:order_id>/', views.request_review_after_pickup, name='request_review_after_pickup'),
 ]

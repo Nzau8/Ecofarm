@@ -36,8 +36,14 @@ from haversine import haversine, Unit
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from .mpesa import process_split_payment
+from django.core.mail import send_mail
+from django.db import transaction
+import logging
+from .whatsapp import send_whatsapp_message, format_order_notification
 
 CACHE_TTL = getattr(settings, 'CACHE_TTL', DEFAULT_TIMEOUT)
+
+logger = logging.getLogger(__name__)
 
 def get_filtered_products(request):
     products = Product.objects.filter(is_available=True)
@@ -272,7 +278,7 @@ def cart(request):
                 is_active=True,
                 operating_zone=item.product.seller.operating_zone
             ).annotate(
-                completed_deliveries=Count('delivery_orders', filter=Q(delivery_orders__status='completed'))
+                completed_deliveries=Count('deliveries', filter=Q(deliveries__status='completed'))
             ).order_by('-completed_deliveries')[:5]
         else:
             item.available_riders = []
@@ -413,62 +419,132 @@ def checkout(request):
     if request.method == 'POST':
         form = OrderForm(request.POST)
         if form.is_valid():
-            order = form.save(commit=False)
-            order.buyer = request.user
-            
-            # Get the first item's seller
-            first_item = cart.items.first()
-            if first_item:
-                order.seller = first_item.product.seller
-            
-            # Get selected rider if boda delivery
-            if order.delivery_type == 'boda':
-                selected_riders = request.session.get('selected_riders', {})
-                first_item_id = str(first_item.id)
-                if first_item_id in selected_riders:
-                    rider_id = selected_riders[first_item_id]
-                    order.boda_rider = User.objects.get(id=rider_id)
-            
-            # Calculate total amount including delivery fee
-            subtotal = sum(item.product.price * item.quantity for item in cart.items.all())
-            if order.delivery_type == 'boda' and order.boda_rider:
-                delivery_fee = calculate_delivery_fee(order.seller, order.boda_rider)
-            else:
-                delivery_fee = 0
-            
-            order.total_amount = subtotal + delivery_fee
-            order.save()
-            
-            # Add cart items to order
-            order.cart_items.add(*cart.items.all())
-            
-            # Create order items
-            for cart_item in cart.items.all():
-                OrderItem.objects.create(
-                    order=order,
-                    product=cart_item.product,
-                    quantity=cart_item.quantity,
-                    price_at_time=cart_item.product.price,
-                    subtotal=cart_item.product.price * cart_item.quantity
-                )
-            
-            # Process M-Pesa payment
             try:
-                success, message = process_split_payment(order)
-                if success:
+                with transaction.atomic():
+                    # Log the start of order processing
+                    logger.info(f"Processing order for user {request.user.username}")
+                    
+                    # Validate all products and quantities first
+                    for cart_item in cart.items.all():
+                        product = cart_item.product
+                        if not product.is_available:
+                            logger.warning(f"Product {product.name} is no longer available")
+                            messages.error(request, f'{product.name} is no longer available.')
+                            return redirect('cart')
+                        
+                        if cart_item.quantity > product.quantity:
+                            logger.warning(f"Insufficient stock for {product.name}: requested {cart_item.quantity}, available {product.quantity}")
+                            messages.error(request, f'Only {product.quantity} {product.unit}(s) available for {product.name}.')
+                            return redirect('cart')
+                        
+                        if cart_item.quantity < product.min_order_quantity:
+                            logger.warning(f"Order quantity below minimum for {product.name}")
+                            messages.error(request, f'Minimum order quantity for {product.name} is {product.min_order_quantity} {product.unit}(s).')
+                            return redirect('cart')
+                        
+                        if product.max_order_quantity and cart_item.quantity > product.max_order_quantity:
+                            logger.warning(f"Order quantity above maximum for {product.name}")
+                            messages.error(request, f'Maximum order quantity for {product.name} is {product.max_order_quantity} {product.unit}(s).')
+                            return redirect('cart')
+                    
+                    order = form.save(commit=False)
+                    order.buyer = request.user
+                    
+                    # Get the first item's seller
+                    first_item = cart.items.first()
+                    if not first_item:
+                        logger.warning("Attempted checkout with empty cart")
+                        messages.error(request, 'Your cart is empty.')
+                        return redirect('cart')
+                    
+                    order.seller = first_item.product.seller
+                    order.status = Order.Status.PENDING  # Explicitly set status to PENDING
+                    
+                    # Calculate total amount including delivery fee
+                    subtotal = sum(item.product.price * item.quantity for item in cart.items.all())
+                    delivery_fee = 0
+                    
+                    # Check if all items are self-pickup
+                    all_self_pickup = all(item.delivery_type == 'self_pickup' for item in cart.items.all())
+                    
+                    # Handle boda delivery items
+                    if not all_self_pickup:
+                        selected_riders = request.session.get('selected_riders', {})
+                        first_item_id = str(first_item.id)
+                        if first_item_id in selected_riders:
+                            rider_id = selected_riders[first_item_id]
+                            order.boda_rider = User.objects.get(id=rider_id)
+                            delivery_fee = calculate_delivery_fee(order.seller, order.boda_rider)
+                    
+                    order.total_amount = subtotal + delivery_fee
+                    order.save()
+                    logger.info(f"Order #{order.id} created successfully")
+                    
+                    # Create order items and update product quantities
+                    for cart_item in cart.items.all():
+                        OrderItem.objects.create(
+                            order=order,
+                            product=cart_item.product,
+                            quantity=cart_item.quantity,
+                            price_at_time=cart_item.product.price,
+                            subtotal=cart_item.product.price * cart_item.quantity
+                        )
+                        
+                        # Update product quantity
+                        cart_item.product.quantity -= cart_item.quantity
+                        cart_item.product.save()
+                        logger.info(f"Updated quantity for product {cart_item.product.name}: -{cart_item.quantity}")
+                    
+                    # Process payment only for orders with boda delivery
+                    if not all_self_pickup:
+                        try:
+                            success, message = process_split_payment(order)
+                            if not success:
+                                logger.error(f"Payment failed for order #{order.id}: {message}")
+                                raise Exception(message)
+                        except Exception as e:
+                            logger.error(f"Payment processing error for order #{order.id}: {str(e)}")
+                            messages.error(request, f'Payment failed: {str(e)}')
+                            raise  # This will trigger rollback
+                    else:
+                        # For self-pickup orders, mark as confirmed immediately
+                        order.payment_status = True
+                        order.status = Order.Status.CONFIRMED
+                        order.save()
+                        logger.info(f"Self-pickup order #{order.id} marked as confirmed")
+                        messages.success(request, 'Order placed successfully! You can pay in cash when picking up your items.')
+                    
+                    # Send WhatsApp notification to seller
+                    if order.seller.phone_number:
+                        notification_message = format_order_notification(order)
+                        success, error = send_whatsapp_message(order.seller.phone_number, notification_message)
+                        if not success:
+                            logger.error(f"Failed to send WhatsApp notification for order #{order.id}: {error}")
+                        else:
+                            logger.info(f"WhatsApp notification sent for order #{order.id}")
+                    else:
+                        logger.warning(f"No phone number available for seller of order #{order.id}")
+                    
+                    # Create notification in the system
+                    Notification.objects.create(
+                        user=order.seller,
+                        title='New Order Received',
+                        message=f'You have received a new order #{order.id} from {order.buyer.get_full_name() or order.buyer.username}',
+                        notification_type='new_order'
+                    )
+                    logger.info(f"In-app notification created for order #{order.id}")
+                    
                     # Clear cart and session data
                     cart.items.all().delete()
                     if 'selected_riders' in request.session:
                         del request.session['selected_riders']
                     
-                    messages.success(request, 'Order placed successfully! Check your phone for M-Pesa prompt.')
                     return redirect('order_confirmation', pk=order.pk)
-                else:
-                    messages.error(request, f'Payment failed: {message}')
-                    return redirect('checkout')
+                    
             except Exception as e:
-                messages.error(request, f'Error processing payment: {str(e)}')
-                return redirect('checkout')
+                logger.error(f"Error processing order: {str(e)}")
+                messages.error(request, f'Error processing order: {str(e)}')
+                return redirect('cart')
     else:
         form = OrderForm()
     
@@ -504,12 +580,46 @@ def seller_dashboard(request):
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('home')
     
+    # Get products
     products = Product.objects.filter(seller=request.user)
-    recent_orders = Order.objects.filter(items__product__seller=request.user).distinct().order_by('-created_at')[:5]
+    
+    # Get all orders for analytics
+    all_orders = Order.objects.filter(seller=request.user)
+    
+    # Calculate analytics
+    current_month = timezone.now().month
+    monthly_orders = all_orders.filter(created_at__month=current_month).count()
+    total_sales = all_orders.filter(payment_received=True).aggregate(total=Sum('total_amount'))['total'] or 0
+    
+    # Get orders by status
+    pending_orders = Order.objects.filter(
+        seller=request.user,
+        status=Order.Status.PENDING
+    ).select_related('buyer').prefetch_related('items').order_by('-created_at')
+    
+    confirmed_orders = Order.objects.filter(
+        seller=request.user,
+        status=Order.Status.CONFIRMED
+    ).select_related('buyer').prefetch_related('items').order_by('-created_at')[:5]
+    
+    completed_orders = Order.objects.filter(
+        seller=request.user,
+        status__in=[Order.Status.DELIVERED, Order.Status.PICKED_UP]
+    ).select_related('buyer').prefetch_related('items').order_by('-created_at')[:5]
+    
+    # Calculate pending orders statistics
+    pending_orders_count = pending_orders.count()
+    pending_orders_value = pending_orders.aggregate(total=Sum('total_amount'))['total'] or 0
     
     return render(request, 'seller_dashboard.html', {
         'products': products,
-        'recent_orders': recent_orders,
+        'pending_orders': pending_orders,
+        'confirmed_orders': confirmed_orders,
+        'completed_orders': completed_orders,
+        'monthly_orders': monthly_orders,
+        'total_sales': total_sales,
+        'pending_orders_count': pending_orders_count,
+        'pending_orders_value': pending_orders_value,
     })
 
 @login_required
@@ -1846,3 +1956,195 @@ def edit_content(request, pk):
         'form': form,
         'content': content
     })
+
+@login_required
+def manage_pickup_orders(request):
+    """View for sellers to manage pickup orders"""
+    if not request.user.is_seller():
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('home')
+    
+    # Get all pickup orders for this seller
+    pickup_orders = Order.objects.filter(
+        seller=request.user,
+        delivery_type=Order.DeliveryType.PICKUP
+    ).select_related('buyer').order_by('-created_at')
+    
+    context = {
+        'pending_pickup': pickup_orders.filter(status=Order.Status.PENDING_PICKUP),
+        'picked_up': pickup_orders.filter(status=Order.Status.PICKED_UP),
+        'completed': pickup_orders.filter(status=Order.Status.DELIVERED),
+    }
+    
+    return render(request, 'pickup_orders.html', context)
+
+@login_required
+def confirm_pickup(request, order_id):
+    """View for sellers to confirm order pickup and payment"""
+    order = get_object_or_404(Order, id=order_id, seller=request.user)
+    
+    if request.method == 'POST':
+        payment_received = request.POST.get('payment_received') == 'true'
+        pickup_notes = request.POST.get('pickup_notes', '')
+        
+        try:
+            with transaction.atomic():
+                order.mark_as_picked_up(payment_received=payment_received)
+                if payment_received:
+                    order.confirm_pickup_payment(received_by=request.user)
+                if pickup_notes:
+                    order.pickup_notes = pickup_notes
+                    order.save()
+                
+                # Create notification for buyer
+                Notification.objects.create(
+                    user=order.buyer,
+                    title='Order Picked Up',
+                    message=f'Your order #{order.id} has been marked as picked up.',
+                    notification_type='order_status'
+                )
+                
+                # Send email notification
+                send_pickup_confirmation_email(order)
+                
+                messages.success(request, 'Order pickup has been confirmed successfully.')
+                return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+@login_required
+def schedule_pickup(request, order_id):
+    """View for setting pickup time for an order"""
+    order = get_object_or_404(
+        Order, 
+        id=order_id,
+        delivery_type=Order.DeliveryType.PICKUP,
+        status=Order.Status.PENDING_PICKUP
+    )
+    
+    # Check if user is buyer or seller
+    if request.user not in [order.buyer, order.seller]:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            pickup_time = request.POST.get('pickup_time')
+            notes = request.POST.get('notes')
+            
+            # Convert pickup_time string to datetime
+            pickup_datetime = timezone.datetime.strptime(pickup_time, '%Y-%m-%d %H:%M')
+            
+            order.set_pickup_time(pickup_datetime, notes)
+            
+            # Create notification for other party
+            notify_user = order.seller if request.user == order.buyer else order.buyer
+            Notification.objects.create(
+                user=notify_user,
+                title='Pickup Time Scheduled',
+                message=f'Pickup time for order #{order.id} has been scheduled for {pickup_time}',
+                notification_type='pickup_scheduled'
+            )
+            
+            return JsonResponse({
+                'status': 'success',
+                'pickup_time': pickup_time,
+                'message': 'Pickup time has been scheduled successfully.'
+            })
+        except ValueError:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Invalid pickup time format'
+            }, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+def send_pickup_confirmation_email(order):
+    """Send email confirmation for pickup orders"""
+    subject = f'Order #{order.id} Pickup Confirmation'
+    
+    # Email to buyer
+    buyer_message = f"""
+    Dear {order.buyer.get_full_name()},
+    
+    This email confirms that you have picked up your order #{order.id}.
+    
+    Order Details:
+    - Order Number: #{order.id}
+    - Total Amount: KES {order.total_amount}
+    - Pickup Date: {timezone.now().strftime('%B %d, %Y')}
+    
+    Thank you for your business!
+    
+    Best regards,
+    {order.seller.get_full_name()}
+    """
+    
+    try:
+        send_mail(
+            subject,
+            buyer_message,
+            settings.DEFAULT_FROM_EMAIL,
+            [order.buyer.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        # Log the error but don't stop the process
+        print(f"Error sending pickup confirmation email: {str(e)}")
+
+@login_required
+def request_review_after_pickup(request, order_id):
+    """Request a review from the buyer after pickup"""
+    order = get_object_or_404(Order, id=order_id)
+    
+    if request.user != order.seller:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+    
+    if not order.can_leave_review():
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Order is not eligible for review yet'
+        }, status=400)
+    
+    # Create notification for buyer
+    Notification.objects.create(
+        user=order.buyer,
+        title='Review Your Purchase',
+        message=f'Please take a moment to review your experience with order #{order.id}',
+        notification_type='review_request'
+    )
+    
+    return JsonResponse({'status': 'success'})
+
+@login_required
+def get_new_seller_orders(request):
+    """API endpoint to fetch new orders for the seller"""
+    if not request.user.is_seller():
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    last_order_id = request.GET.get('last_order_id', 0)
+    
+    # Get new orders
+    new_orders = Order.objects.filter(
+        seller=request.user,
+        id__gt=last_order_id
+    ).select_related('buyer').prefetch_related('items').order_by('id')
+    
+    # Format orders for JSON response
+    orders_data = [{
+        'id': order.id,
+        'buyer_name': order.buyer.get_full_name() or order.buyer.username,
+        'buyer_phone': order.buyer.phone_number,
+        'buyer_id': order.buyer.id,
+        'items_count': order.items.count(),
+        'total_amount': float(order.total_amount),
+        'delivery_type': order.delivery_type,
+        'delivery_type_display': order.get_delivery_type_display(),
+        'status': order.status,
+        'status_display': order.get_status_display(),
+        'created_at': order.created_at.isoformat(),
+        'payment_received': order.payment_received
+    } for order in new_orders]
+    
+    return JsonResponse({'orders': orders_data})

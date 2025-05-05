@@ -19,6 +19,7 @@ class User(AbstractUser):
     )
     phone_number = models.CharField(max_length=15, blank=True)
     location = models.CharField(max_length=255, blank=True)
+    operating_zone = models.CharField(max_length=255, blank=True, help_text=_('Zone where the user operates (for sellers and riders)'))
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     wishlist = models.ManyToManyField('Product', related_name='wishlisted_by', blank=True)
     friends = models.ManyToManyField('self', symmetrical=True, blank=True)
@@ -34,6 +35,19 @@ class User(AbstractUser):
     
     def is_boda_rider(self):
         return self.role == self.Role.BODA_RIDER
+        
+    def get_whatsapp_link(self):
+        """Generate WhatsApp link for the user's phone number"""
+        if self.phone_number:
+            # Remove any non-digit characters from phone number
+            clean_number = ''.join(filter(str.isdigit, self.phone_number))
+            # Add country code if not present (assuming Kenya's +254)
+            if len(clean_number) == 9:  # If number starts with 7xx or 1xx
+                clean_number = '254' + clean_number
+            elif len(clean_number) == 10 and clean_number.startswith('0'):  # If number starts with 07xx
+                clean_number = '254' + clean_number[1:]
+            return f'https://wa.me/{clean_number}'
+        return None
 
 class ProductTag(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -146,6 +160,8 @@ class ProductImage(models.Model):
 class Order(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', _('Pending')
+        PENDING_PICKUP = 'pending_pickup', _('Pending Pickup')
+        PICKED_UP = 'picked_up', _('Picked Up')
         CONFIRMED = 'confirmed', _('Confirmed')
         PROCESSING = 'processing', _('Processing')
         SHIPPED = 'shipped', _('Shipped')
@@ -158,14 +174,74 @@ class Order(models.Model):
         PICKUP = 'pickup', _('Self Pickup')
 
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     delivery_type = models.CharField(max_length=20, choices=DeliveryType.choices)
     boda_rider = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    delivery_address = models.TextField()
+    delivery_address = models.TextField(blank=True, null=True)
     payment_status = models.BooleanField(default=False)
+    payment_method = models.CharField(max_length=20, choices=[
+        ('mpesa', 'M-Pesa'),
+        ('cash_pickup', 'Cash on Pickup')
+    ], default='mpesa')
+    pickup_time = models.DateTimeField(null=True, blank=True)
+    pickup_notes = models.TextField(blank=True, null=True)
+    payment_received = models.BooleanField(default=False)
+    payment_received_at = models.DateTimeField(null=True, blank=True)
+    payment_received_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='payments_received'
+    )
+
+    def save(self, *args, **kwargs):
+        # Set initial status for self-pickup orders
+        if self.delivery_type == self.DeliveryType.PICKUP and not self.id:
+            self.status = self.Status.PENDING_PICKUP
+            self.payment_method = 'cash_pickup'
+        super().save(*args, **kwargs)
+
+    def mark_as_picked_up(self, payment_received=False):
+        """Mark the order as picked up by the buyer"""
+        self.status = self.Status.PICKED_UP
+        if payment_received:
+            self.payment_received = True
+            self.payment_received_at = timezone.now()
+            self.payment_status = True
+        self.save()
+
+    def confirm_pickup_payment(self, received_by):
+        """Confirm that payment was received during pickup"""
+        self.payment_received = True
+        self.payment_received_at = timezone.now()
+        self.payment_received_by = received_by
+        self.payment_status = True
+        self.save()
+
+    def set_pickup_time(self, pickup_time, notes=None):
+        """Set the scheduled pickup time and optional notes"""
+        self.pickup_time = pickup_time
+        if notes:
+            self.pickup_notes = notes
+        self.save()
+
+    def is_self_pickup(self):
+        """Check if this is a self-pickup order"""
+        return self.delivery_type == self.DeliveryType.PICKUP
+
+    def can_be_picked_up(self):
+        """Check if the order is ready for pickup"""
+        return self.is_self_pickup() and self.status == self.Status.PENDING_PICKUP
+
+    def can_leave_review(self):
+        """Check if the buyer can leave a review"""
+        return (self.status == self.Status.PICKED_UP and self.payment_received) or \
+               (self.status == self.Status.DELIVERED)
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
@@ -179,17 +255,41 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def get_subtotal(self):
+        """Calculate the total cost of all items in the cart"""
+        return sum(item.product.price * item.quantity for item in self.items.all())
+
+    def get_total_with_delivery(self):
+        """Calculate the total cost including delivery fees"""
+        subtotal = self.get_subtotal()
+        delivery_fee = sum(200 if item.delivery_type == 'boda' else 0 for item in self.items.all())
+        return subtotal + delivery_fee
+
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     variant = models.ForeignKey('ProductVariant', on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
+    delivery_type = models.CharField(max_length=20, choices=[
+        ('self_pickup', 'Self Pickup'),
+        ('boda_delivery', 'Boda Delivery')
+    ], default='self_pickup')
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
 
     class Meta:
         unique_together = ('cart', 'product', 'variant')
+
+    def get_subtotal(self):
+        """Calculate the subtotal for this item"""
+        return self.product.price * self.quantity
+
+    def get_total_with_delivery(self):
+        """Calculate the total including delivery fee"""
+        subtotal = self.get_subtotal()
+        delivery_fee = 200 if self.delivery_type == 'boda_delivery' else 0
+        return subtotal + delivery_fee
 
 class Negotiation(models.Model):
     class Status(models.TextChoices):

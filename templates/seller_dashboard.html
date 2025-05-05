@@ -1,7 +1,27 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Seller Dashboard - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-card {
+        transition: all 0.3s ease;
+    }
+    .order-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .status-pending { background-color: #ffd700; color: #000; }
+    .status-confirmed { background-color: #00bcd4; color: #fff; }
+    .status-completed { background-color: #4caf50; color: #fff; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -22,8 +42,8 @@
                         </div>
                     </div>
                     <div class="list-group">
-                        <a href="#products" class="list-group-item list-group-item-action active">Products</a>
-                        <a href="#orders" class="list-group-item list-group-item-action">Orders</a>
+                        <a href="#orders" class="list-group-item list-group-item-action active">Orders</a>
+                        <a href="#products" class="list-group-item list-group-item-action">Products</a>
                         <a href="#analytics" class="list-group-item list-group-item-action">Analytics</a>
                         <a href="{% url 'profile' username=user.username %}" class="list-group-item list-group-item-action">View Profile</a>
                         <a href="{% url 'edit_profile' %}" class="list-group-item list-group-item-action">Edit Profile</a>
@@ -34,12 +54,177 @@
 
         <!-- Main Content -->
         <div class="col-md-9">
+            <!-- Analytics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">Pending Orders</h6>
+                            <h3 class="mb-0">{{ pending_orders_count }}</h3>
+                            <small>Value: KES {{ pending_orders_value|intcomma }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">Monthly Orders</h6>
+                            <h3 class="mb-0">{{ monthly_orders }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h6 class="card-title">Total Sales</h6>
+                            <h3 class="mb-0">KES {{ total_sales|intcomma }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Section -->
+            <div class="card mb-4" id="orders">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Orders</h5>
+                    <div>
+                        <a href="{% url 'manage_pickup_orders' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-box-seam"></i> Manage Pickup Orders
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_orders %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Items</th>
+                                        <th>Amount</th>
+                                        <th>Delivery</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in recent_orders %}
+                                    <tr>
+                                        <td>#{{ order.id }}</td>
+                                        <td>
+                                            {{ order.buyer.get_full_name }}
+                                            <br>
+                                            <small class="text-muted">{{ order.buyer.phone_number }}</small>
+                                        </td>
+                                        <td>{{ order.items.count }} items</td>
+                                        <td>KES {{ order.total_amount|intcomma }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if order.delivery_type == 'pickup' %}info{% else %}primary{% endif %}">
+                                                {{ order.get_delivery_type_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ order.status|lower }}">
+                                                {{ order.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ order.created_at|date:"M d, Y" }}</td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#orderDetails{{ order.id }}">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                {% if order.delivery_type == 'pickup' and order.status == 'pending_pickup' %}
+                                                <button class="btn btn-sm btn-outline-success" onclick="confirmPickup({{ order.id }})">
+                                                    <i class="bi bi-check2"></i>
+                                                </button>
+                                                {% endif %}
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="messageCustomer({{ order.buyer.id }})">
+                                                    <i class="bi bi-chat-dots"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Order Details Modal -->
+                                    <div class="modal fade" id="orderDetails{{ order.id }}" tabindex="-1">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Order #{{ order.id }} Details</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="row mb-4">
+                                                        <div class="col-md-6">
+                                                            <h6>Customer Information</h6>
+                                                            <p>
+                                                                <strong>Name:</strong> {{ order.buyer.get_full_name }}<br>
+                                                                <strong>Phone:</strong> {{ order.buyer.phone_number }}<br>
+                                                                <strong>Email:</strong> {{ order.buyer.email }}
+                                                            </p>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6>Order Information</h6>
+                                                            <p>
+                                                                <strong>Date:</strong> {{ order.created_at|date:"M d, Y H:i" }}<br>
+                                                                <strong>Status:</strong> {{ order.get_status_display }}<br>
+                                                                <strong>Delivery Type:</strong> {{ order.get_delivery_type_display }}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <h6>Order Items</h6>
+                                                    <div class="table-responsive">
+                                                        <table class="table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Product</th>
+                                                                    <th>Quantity</th>
+                                                                    <th>Price</th>
+                                                                    <th>Total</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {% for item in order.items.all %}
+                                                                <tr>
+                                                                    <td>{{ item.product.name }}</td>
+                                                                    <td>{{ item.quantity }}</td>
+                                                                    <td>KES {{ item.price_at_time|intcomma }}</td>
+                                                                    <td>KES {{ item.subtotal|intcomma }}</td>
+                                                                </tr>
+                                                                {% endfor %}
+                                                            </tbody>
+                                                            <tfoot>
+                                                                <tr>
+                                                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                                                    <td><strong>KES {{ order.total_amount|intcomma }}</strong></td>
+                                                                </tr>
+                                                            </tfoot>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted">No orders yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Products Section -->
             <div class="card mb-4" id="products">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">My Products</h5>
                     <a href="{% url 'add_product' %}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i> Add Product
+                        <i class="bi bi-plus"></i> Add Product
                     </a>
                 </div>
                 <div class="card-body">
@@ -60,13 +245,15 @@
                                     {% for product in products %}
                                     <tr>
                                         <td>
-                                            <img src="{{ product.image.url }}" 
+                                            {% if product.images.first %}
+                                            <img src="{{ product.images.first.image.url }}" 
                                                  alt="{{ product.name }}"
                                                  style="width: 50px; height: 50px; object-fit: cover;">
+                                            {% endif %}
                                         </td>
                                         <td>{{ product.name }}</td>
-                                        <td>KES {{ product.price }}</td>
-                                        <td>{{ product.stock }}</td>
+                                        <td>KES {{ product.price|intcomma }}</td>
+                                        <td>{{ product.quantity }}</td>
                                         <td>
                                             {% if product.is_available %}
                                                 <span class="badge bg-success">Available</span>
@@ -75,13 +262,14 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <a href="{% url 'edit_product' product.id %}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <button class="btn btn-sm btn-outline-danger" 
-                                                    onclick="deleteProduct({{ product.id }})">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                            <div class="btn-group">
+                                                <a href="{% url 'edit_product' product.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct({{ product.id }})">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -90,54 +278,6 @@
                         </div>
                     {% else %}
                         <p class="text-center text-muted">No products added yet.</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Recent Orders Section -->
-            <div class="card mb-4" id="orders">
-                <div class="card-header">
-                    <h5 class="mb-0">Recent Orders</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_orders %}
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Order ID</th>
-                                        <th>Customer</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                        <th>Date</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for order in recent_orders %}
-                                    <tr>
-                                        <td>#{{ order.id }}</td>
-                                        <td>{{ order.buyer.get_full_name }}</td>
-                                        <td>KES {{ order.total_amount }}</td>
-                                        <td>
-                                            <span class="badge bg-{{ order.status|lower }}">
-                                                {{ order.get_status_display }}
-                                            </span>
-                                        </td>
-                                        <td>{{ order.created_at|date:"M d, Y" }}</td>
-                                        <td>
-                                            <a href="{% url 'order_details' order.id %}" 
-                                               class="btn btn-sm btn-outline-primary">
-                                                View Details
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-center text-muted">No orders yet.</p>
                     {% endif %}
                 </div>
             </div>
@@ -153,7 +293,7 @@
                             <div class="card bg-primary text-white">
                                 <div class="card-body">
                                     <h6 class="card-title">Total Sales</h6>
-                                    <h3 class="mb-0">KES {{ total_sales|default:"0" }}</h3>
+                                    <h3 class="mb-0">KES {{ total_sales|default:"0"|intcomma }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -169,7 +309,7 @@
                             <div class="card bg-info text-white">
                                 <div class="card-body">
                                     <h6 class="card-title">Active Products</h6>
-                                    <h3 class="mb-0">{{ active_products|default:"0" }}</h3>
+                                    <h3 class="mb-0">{{ products.count }}</h3>
                                 </div>
                             </div>
                         </div>
@@ -180,25 +320,184 @@
     </div>
 </div>
 
+{% endblock %}
+
 {% block extra_js %}
 <script>
-function deleteProduct(productId) {
-    if (confirm('Are you sure you want to delete this product?')) {
-        fetch(`/api/products/${productId}/`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => {
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                alert('Error deleting product');
-            }
+    // Function to format currency
+    function formatCurrency(amount) {
+        return 'KES ' + new Intl.NumberFormat().format(amount);
+    }
+
+    // Function to format date
+    function formatDate(dateString) {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
         });
     }
-}
+
+    // Function to create order row HTML
+    function createOrderRow(order) {
+        const statusBadgeClass = order.status.toLowerCase();
+        const deliveryTypeBadgeClass = order.delivery_type === 'pickup' ? 'info' : 'primary';
+        
+        return `
+            <tr id="order-${order.id}">
+                <td>#${order.id}</td>
+                <td>
+                    ${order.buyer.get_full_name}
+                    <br>
+                    <small class="text-muted">${order.buyer.phone_number}</small>
+                </td>
+                <td>${order.items.count} items</td>
+                <td>${formatCurrency(order.total_amount)}</td>
+                <td>
+                    <span class="badge bg-${deliveryTypeBadgeClass}">
+                        ${order.get_delivery_type_display}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-${statusBadgeClass}">
+                        ${order.get_status_display}
+                    </span>
+                </td>
+                <td>${formatDate(order.created_at)}</td>
+                <td>
+                    <div class="btn-group">
+                        <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#orderDetails${order.id}">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        ${order.delivery_type === 'pickup' && order.status === 'pending_pickup' ?
+                            `<button class="btn btn-sm btn-outline-success" onclick="confirmPickup(${order.id})">
+                                <i class="bi bi-check2"></i>
+                            </button>` : ''
+                        }
+                        <button class="btn btn-sm btn-outline-secondary" onclick="messageCustomer(${order.buyer.id})">
+                            <i class="bi bi-chat-dots"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    // Function to check for new orders
+    function checkNewOrders() {
+        const lastOrderId = document.querySelector('#ordersTable tbody tr:first-child')?.id?.split('-')[1] || 0;
+        
+        fetch(`/api/seller/new-orders/?last_order_id=${lastOrderId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.orders && data.orders.length > 0) {
+                    const tbody = document.querySelector('#ordersTable tbody');
+                    
+                    // Add new orders to the table
+                    data.orders.reverse().forEach(order => {
+                        const newRow = createOrderRow(order);
+                        tbody.insertAdjacentHTML('afterbegin', newRow);
+                        
+                        // Show notification
+                        const notification = new Notification('New Order Received', {
+                            body: `Order #${order.id} has been placed by ${order.buyer.get_full_name}`,
+                            icon: '/static/images/notification-icon.png'
+                        });
+                        
+                        // Update order count and total sales if needed
+                        if (new Date(order.created_at).getMonth() === new Date().getMonth()) {
+                            const monthlyOrdersElement = document.getElementById('monthlyOrders');
+                            monthlyOrdersElement.textContent = parseInt(monthlyOrdersElement.textContent) + 1;
+                        }
+                        
+                        if (order.payment_received) {
+                            const totalSalesElement = document.getElementById('totalSales');
+                            const currentTotal = parseFloat(totalSalesElement.textContent.replace(/[^0-9.-]+/g, ''));
+                            totalSalesElement.textContent = formatCurrency(currentTotal + order.total_amount);
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Error checking for new orders:', error));
+    }
+
+    // Request notification permission
+    if ('Notification' in window) {
+        Notification.requestPermission();
+    }
+
+    // Check for new orders every 30 seconds
+    setInterval(checkNewOrders, 30000);
+
+    // Initial check for new orders
+    checkNewOrders();
+
+    function confirmPickup(orderId) {
+        if (confirm('Are you sure you want to confirm this pickup?')) {
+            fetch(`/confirm-pickup/${orderId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error confirming pickup: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error confirming pickup. Please try again.');
+            });
+        }
+    }
+
+    function messageCustomer(customerId) {
+        // Open message modal or redirect to messaging interface
+        window.location.href = `/messages/new/${customerId}/`;
+    }
+
+    function deleteProduct(productId) {
+        if (confirm('Are you sure you want to delete this product?')) {
+            fetch(`/delete-product/${productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error deleting product: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting product. Please try again.');
+            });
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 </script>
-{% endblock %}
 {% endblock %} 

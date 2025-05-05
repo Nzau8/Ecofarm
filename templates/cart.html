@@ -58,12 +58,12 @@
                                         {{ item.product.seller.get_full_name|default:item.product.seller.username }}
                                         <i class="bi bi-chat-dots ms-1"></i>
                                     </a>
-                                    <!-- WhatsApp Button -->
+                                    <!-- WhatsApp Button for Seller -->
                                     {% if item.product.seller.phone_number %}
-                                    <a href="{{ item.product.seller.get_whatsapp_link }}?text=Hi, I'm interested in {{ item.product.name|urlencode }}" 
+                                    <a href="https://wa.me/{{ item.product.seller.phone_number|cut:'+' }}?text=Hi, I'm interested in {{ item.product.name|urlencode }} from your shop on Connect." 
                                        target="_blank" 
-                                       class="btn btn-whatsapp ms-2">
-                                        <i class="bi bi-whatsapp"></i> WhatsApp
+                                       class="btn btn-success btn-sm ms-2">
+                                        <i class="bi bi-whatsapp"></i> WhatsApp Seller
                                     </a>
                                     {% endif %}
                                 </p>
@@ -207,10 +207,10 @@
                                                                                         Available Now
                                                                                     </span>
                                                                                     {% if rider.phone_number %}
-                                                                                    <a href="{{ rider.get_whatsapp_link }}?text=Hi, I need a delivery service" 
+                                                                                    <a href="https://wa.me/{{ rider.phone_number|cut:'+' }}?text=Hi, I need a delivery service for my order from Connect." 
                                                                                        target="_blank" 
-                                                                                       class="btn btn-whatsapp ms-2">
-                                                                                        <i class="bi bi-whatsapp"></i> WhatsApp
+                                                                                       class="btn btn-success btn-sm ms-2">
+                                                                                        <i class="bi bi-whatsapp"></i> WhatsApp Rider
                                                                                     </a>
                                                                                     {% endif %}
                                                                                     {% else %}
